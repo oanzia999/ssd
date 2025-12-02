@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Page</title>
+    <style>
+        /* RESET & BASICS */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
+            /* FLASK FIX: Background Image */
+            background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
+            background-size: cover;       
+            background-position: center;  
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+        }
+        
+        /* HEADER WRAPPER */
+        .header-wrapper {
+            background-color: #e6f3ff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding-bottom: 10px;
+        }
+
+        /* 1. TOP ROW (Welcome + Buttons) */
+        .welcome-container {
+            display: flex;             
+            justify-content: space-between; 
+            align-items: center;       
+            padding: 20px 30px 5px 42px; 
+        }
+
+        .welcome-container h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #2c3e50; 
+        }
+
+        /* 2. AUTH BUTTONS */
+        .auth-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .auth-buttons a {
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .btn-login {
+            background-color: #ffffff;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        .btn-login:hover { background-color: #f9f9f9; }
+
+        .btn-register {
+            background-color: #005eb8;
+            color: white;
+            border: 1px solid #005eb8;
+        }
+        .btn-register:hover { background-color: #003087; }
+
+        /* 3. NAVIGATION ROW */
+        .main-nav {
+            padding: 5px 30px 10px 32px; 
+            display: flex;
+            align-items: center;
+        }
+
+        .main-nav a {
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 5px 12px; 
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .main-nav a:hover {
+            color: #005eb8;       
+            background-color: #ffffff; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
+
+        .separator {
+            color: #8fa3ad; 
+            margin: 0 5px; 
+            user-select: none;
+            cursor: default;
+        }
+
+        /* --- MAIN CONTENT STYLING --- */
+        .main-content-wrapper {
+            flex: 1; 
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: row; 
+            justify-content: center; 
+            align-items: flex-start; 
+            flex-wrap: wrap; 
+            gap: 30px;
+        }
+
+        .info-card, .university-card {
+            border-radius: 15px;
+            flex: 1; 
+            min-width: 350px; 
+            max-width: 600px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        .info-card {
+            background-color: rgba(255, 255, 255, 0.95); 
+            color: #333;
+            text-align: left;
+        }
+
+        .university-card {
+            background-color: rgba(28, 53, 94, 0.9); 
+            color: white;
+        }
+
+        .info-card ul, .university-card ul {
+            text-align: left;
+            line-height: 1.6;
+        }
+        
+        .fast-test-container {
+            display: flex;
+            align-items: center; 
+            gap: 20px;           
+            flex-wrap: wrap;     
+        }
+
+        /* BOTTOM COMPARTMENT STYLING */
+        .bottom-compartment {
+            text-align: center; 
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: auto; 
+        }
+        
+        .bottom-compartment a {
+            color: #fff; 
+            text-decoration: underline;
+        }
+        
+        .bottom-compartment img {
+            margin-top: 20px;
+            max-width: 100%; 
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="header-wrapper">
+        <div class="welcome-container">
+            <h1>Welcome to LTU Health Department</h1>
+            
+            <div class="auth-buttons">
+                <a href="{{ url_for('login_page') }}" class="btn-login">Log in</a>
+                <a href="{{ url_for('register_page') }}" class="btn-register">Register</a>
+            </div>
+        </div>
+
+        <nav class="main-nav">
+            <a href="{{ url_for('home') }}">Home</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('patient_page') }}">Patient</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('doctor_page') }}">Doctor</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('about_page') }}">About</a>
+        </nav>
+    </header>
+
+    <div class="main-content-wrapper">
+
+        <div class="info-card">
+            <h2 style="color: #005eb8; margin-top: 0;">Understanding Stroke Prevention</h2>
+            <p>According to the <strong>NHS</strong>, a stroke is a serious life-threatening medical condition that happens when the blood supply to part of the brain is cut off.</p>
+            
+            <h3 style="color: #333; border-bottom: 2px solid #005eb8; padding-bottom: 5px; display: inline-block;">The F.A.S.T. Test</h3>
+            
+            <div class="fast-test-container">
+                <ul style="flex: 1; min-width: 200px;">
+                    <li><strong>Face:</strong> Has their face fallen on one side? Can they smile?</li>
+                    <li><strong>Arms:</strong> Can they lift both arms and keep them there?</li>
+                    <li><strong>Speech:</strong> Is their speech slurred?</li>
+                    <li><strong>Time:</strong> Time to call 999 immediately if you see any of these signs.</li>
+                </ul>
+                
+                <img src="{{ url_for('static', filename='fast stroke.jpg') }}" alt="FAST Stroke Infographic" style="width: 250px; height: auto; border-radius: 8px;">
+            </div>
+    
+            <div style="background-color: #e6f3ff; padding: 15px; border-left: 5px solid #005eb8; margin: 20px 0;">
+                <strong>Medical Curiosity:</strong>
+                <p style="margin: 5px 0 0;">Did you know that during a stroke, the brain can lose up to <strong>1.9 million brain cells per minute</strong>? This highlights why rapid prediction and treatment are critical.</p>
+            </div>
+    
+            <h3>Risk Factors We Monitor</h3>
+            <p>Our application tracks key indicators identified by the NHS, including high blood pressure (hypertension), which is the biggest single risk factor for stroke. Other factors include diabetes, high cholesterol, and atrial fibrillation.</p>
+        </div>
+    
+        <div class="university-card">
+            <h2 style="color: #fff; margin-top: 0;">Developed at Leeds Trinity University</h2>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div>
+                    <p>This secure software artefact was developed as part of the <strong>COM7033 Secure Software Development</strong> module within the <em>School of Computing and Creative Industries</em>.</p>
+                    <p><strong>School Mission:</strong> "Computing and Creativity for Good" — fostering work that is imaginative, socially responsible, and transformative.</p>
+                </div>
+                
+                <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                    <h4 style="margin-top: 0; color: #4dc9e6;">Did You Know?</h4>
+                    <ul style="font-size: 0.9em;">
+                        <li>Leeds Trinity was founded in <strong>1966</strong> as two teacher training colleges before gaining full university status in 2012.</li>
+                        <li>The School of Computing actively researches <strong>AI in Healthcare</strong>, directly relevant to this stroke prediction project.</li>
+                        <li>LTU pioneered the inclusion of professional work placements in every undergraduate degree.</li>
+                        <li>The module <strong>Secure Software Development</strong> emphasizes ethical coding practices and data protection laws like GDPR.</li>
+                        <li>The assessment focuses on predicting stroke risk, a condition that affects millions globally, using real-world data science techniques.</li>
+                    </ul>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                    <h4 style="margin-top: 0; color: #4dc9e6;">More about me...</h4>
+                    <p style="font-size: 0.9em; margin-bottom: 0; line-height: 1.6;">This has been created as per Professor Xin Lu's teachings about Secure Software Development, following the SSDLC and implementing additional security features for CRUD (Create, Read, Update, Delete) functionalities for managing patient data.</p>
+                </div>
+
+            </div>
+        </div>
+    
+    </div>
+
+    <div class="bottom-compartment">
+        <h2>Module Goals</h2>
+        <p>Be able to build secure and accessible web applications.</p>
+        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
+
+        <img src="{{ url_for('static', filename='image_1.png') }}" alt="Leeds Trinity University Banner Logo" width="300" style="margin-top: 20px;">
+    </div>
+
+</body>
+</html>

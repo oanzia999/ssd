@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - LTU Health</title>
+    <style>
+        /* --- SHARED STYLES --- */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
+            /* FLASK FIX: Background Image */
+            background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
+            background-size: cover;       
+            background-position: center;  
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+        }
+        
+        .header-wrapper {
+            background-color: #e6f3ff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding-bottom: 10px;
+        }
+
+        .welcome-container {
+            display: flex;             
+            justify-content: space-between; 
+            align-items: center;       
+            padding: 20px 30px 5px 42px; 
+        }
+
+        .welcome-container h1 { margin: 0; font-size: 24px; color: #2c3e50; }
+
+        .auth-buttons { display: flex; gap: 15px; }
+        .auth-buttons a {
+            text-decoration: none; padding: 8px 20px; border-radius: 5px;
+            font-weight: bold; transition: all 0.3s ease; font-size: 14px;
+        }
+        .btn-login { background-color: #ffffff; color: #333; border: 1px solid #ccc; }
+        .btn-login:hover { background-color: #f9f9f9; }
+        .btn-register { background-color: #005eb8; color: white; border: 1px solid #005eb8; }
+        .btn-register:hover { background-color: #003087; }
+
+        .main-nav { padding: 5px 30px 10px 32px; display: flex; align-items: center; }
+        .main-nav a {
+            text-decoration: none; color: #333; font-size: 16px; font-weight: 500;
+            padding: 5px 12px; border-radius: 4px; transition: all 0.2s ease;
+        }
+        .main-nav a:hover { color: #005eb8; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .separator { color: #8fa3ad; margin: 0 5px; user-select: none; cursor: default; }
+
+        /* --- LOGIN CARD STYLING --- */
+        .auth-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .auth-card {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 30px 40px 40px 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        /* TABS FOR PATIENT / DOCTOR */
+        .login-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            gap: 20px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            color: #8fa3ad;
+            cursor: pointer;
+            padding: 5px 10px;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        .tab-btn.active {
+            color: #005eb8;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #005eb8;
+            border-radius: 2px;
+        }
+
+        /* HEADER & FORMS */
+        .auth-card h2 { color: #005eb8; margin-top: 0; margin-bottom: 10px; }
+        .auth-card p.subtitle { color: #666; margin-bottom: 30px; font-size: 0.95em; }
+
+        .form-section { display: none; animation: fadeIn 0.4s; }
+        .form-section.active-form { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: bold; font-size: 0.9em; }
+        
+        .form-control {
+            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 5px;
+            box-sizing: border-box; font-size: 14px; transition: border-color 0.3s;
+        }
+        .form-control:focus { border-color: #005eb8; outline: none; }
+
+        /* Buttons */
+        .btn-submit {
+            width: 100%; padding: 12px; background-color: #005eb8; color: white;
+            border: none; border-radius: 5px; font-size: 16px; font-weight: bold;
+            cursor: pointer; transition: background-color 0.3s; margin-top: 10px;
+        }
+        .btn-submit:hover { background-color: #003087; }
+
+        /* Doctor Theme Override */
+        .btn-doctor { background-color: #008080; } /* Teal for doctors */
+        .btn-doctor:hover { background-color: #006666; }
+
+        /* Admin Theme Override */
+        .admin-theme h2 { color: #333; }
+        .btn-admin { background-color: #333; }
+        .btn-admin:hover { background-color: #000; }
+
+        /* Footer Links */
+        .form-footer { margin-top: 20px; font-size: 0.9em; color: #666; }
+        .form-footer a { color: #005eb8; text-decoration: none; }
+        .form-footer a:hover { text-decoration: underline; }
+
+        .forgot-password {
+            display: block; text-align: right; font-size: 0.85em; color: #666;
+            margin-top: 5px; text-decoration: none;
+        }
+        .forgot-password:hover { color: #005eb8; text-decoration: underline; }
+
+        /* HIDDEN ADMIN LINK */
+        .admin-trigger {
+            margin-top: 30px;
+            font-size: 11px;
+            color: #ccc;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .admin-trigger:hover { color: #999; text-decoration: underline; }
+
+        /* FLASH MESSAGES */
+        .alert {
+            padding: 10px; background-color: #f8d7da; color: #721c24;
+            border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px; font-size: 0.9em;
+        }
+
+        /* BOTTOM COMPARTMENT */
+        .bottom-compartment {
+            text-align: center; color: white; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 20px; width: 100%; box-sizing: border-box; margin-top: auto; 
+        }
+        .bottom-compartment a { color: #fff; text-decoration: underline; }
+        .bottom-compartment img { margin-top: 20px; max-width: 100%; }
+
+    </style>
+    
+    <script>
+        function switchTab(role) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(form => form.classList.remove('active-form'));
+            
+            if(role === 'patient') {
+                document.getElementById('tab-patient').classList.add('active');
+                document.getElementById('form-patient').classList.add('active-form');
+            } else if (role === 'doctor') {
+                document.getElementById('tab-doctor').classList.add('active');
+                document.getElementById('form-doctor').classList.add('active-form');
+            } else if (role === 'admin') {
+                document.getElementById('form-admin').classList.add('active-form');
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <header class="header-wrapper">
+        <div class="welcome-container">
+            <h1>Welcome to LTU Health Department</h1>
+            <div class="auth-buttons">
+                <a href="{{ url_for('login_page') }}" class="btn-login">Log in</a>
+                <a href="{{ url_for('register_page') }}" class="btn-register">Register</a>
+            </div>
+        </div>
+        <nav class="main-nav">
+            <a href="{{ url_for('home') }}">Home</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('patient_page') }}">Patient</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('doctor_page') }}">Doctor</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('about_page') }}">About</a>
+        </nav>
+    </header>
+
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="alert">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+            
+            <div class="login-tabs">
+                <button id="tab-patient" class="tab-btn active" onclick="switchTab('patient')">Patient</button>
+                <button id="tab-doctor" class="tab-btn" onclick="switchTab('doctor')">Doctor</button>
+            </div>
+
+            <div id="form-patient" class="form-section active-form">
+                <h2>Patient Login</h2>
+                <p class="subtitle">Access your personal health dashboard.</p>
+                
+                <form action="{{ url_for('login') }}" method="POST">
+                    <div class="form-group">
+                        <label for="p-email">Email Address</label>
+                        <input type="email" id="p-email" name="email" class="form-control" placeholder="e.g. name@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="p-password">Password</label>
+                        <input type="password" id="p-password" name="password" class="form-control" placeholder="Enter your password" required>
+                        <a href="#" class="forgot-password">Forgot Password?</a>
+                    </div>
+                    <button type="submit" class="btn-submit">Sign In</button>
+                </form>
+
+                <div class="form-footer">
+                    Don't have an account? <a href="{{ url_for('register_page') }}">Register here</a>.
+                </div>
+            </div>
+
+            <div id="form-doctor" class="form-section">
+                <h2 style="color: #008080;">Doctor Portal</h2>
+                <p class="subtitle">Secure access for medical staff.</p>
+                
+                <form action="{{ url_for('doctor_login') }}" method="POST">
+                    <div class="form-group">
+                        <label for="d-id">Medical License ID / Email</label>
+                        <input type="text" id="d-id" name="doctor_id" class="form-control" placeholder="e.g. GMC-123456" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="d-password">Password</label>
+                        <input type="password" id="d-password" name="password" class="form-control" placeholder="Enter secure password" required>
+                        <a href="#" class="forgot-password">Forgot Password?</a>
+                    </div>
+                    <button type="submit" class="btn-submit btn-doctor">Doctor Sign In</button>
+                </form>
+            </div>
+
+            <div id="form-admin" class="form-section admin-theme">
+                <h2>Administrator</h2>
+                <p class="subtitle">System Management Access</p>
+                
+                <form action="{{ url_for('admin_login') }}" method="POST">
+                    <div class="form-group">
+                        <label for="a-user">Admin Username</label>
+                        <input type="text" id="a-user" name="username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="a-pass">System Key</label>
+                        <input type="password" id="a-pass" name="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn-submit btn-admin">Access System</button>
+                </form>
+                
+                <div class="form-footer">
+                    <a href="#" onclick="switchTab('patient')">← Return to Patient Login</a>
+                </div>
+            </div>
+
+            <div class="admin-trigger" onclick="switchTab('admin')">
+                Admin Portal
+            </div>
+
+        </div>
+    </div>
+
+    <div class="bottom-compartment">
+        <h2>Module Goals</h2>
+        <p>Be able to build secure and accessible web applications.</p>
+        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
+        <img src="{{ url_for('static', filename='image_1.png') }}" alt="Leeds Trinity University Banner Logo" width="300" style="margin-top: 20px;">
+    </div>
+
+</body>
+</html>

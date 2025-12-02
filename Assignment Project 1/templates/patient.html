@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Reviews</title>
+    <style>
+        /* RESET & BASICS (Copied from Home) */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
+            
+            /* FLASK IMAGE FIX: Background */
+            background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
+            
+            background-size: cover;       
+            background-position: center;  
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+        }
+        
+        /* HEADER WRAPPER */
+        .header-wrapper {
+            background-color: #e6f3ff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding-bottom: 10px;
+        }
+
+        .welcome-container {
+            display: flex;             
+            justify-content: space-between; 
+            align-items: center;       
+            padding: 20px 30px 5px 42px; 
+        }
+
+        .welcome-container h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #2c3e50; 
+        }
+
+        /* AUTH BUTTONS */
+        .auth-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .auth-buttons a {
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .btn-login {
+            background-color: #ffffff;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        .btn-login:hover { background-color: #f9f9f9; }
+
+        .btn-register {
+            background-color: #005eb8;
+            color: white;
+            border: 1px solid #005eb8;
+        }
+        .btn-register:hover { background-color: #003087; }
+
+        /* NAVIGATION ROW */
+        .main-nav {
+            padding: 5px 30px 10px 32px; 
+            display: flex;
+            align-items: center;
+        }
+
+        .main-nav a {
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 5px 12px; 
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .main-nav a:hover {
+            color: #005eb8;       
+            background-color: #ffffff; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
+
+        .separator {
+            color: #8fa3ad; 
+            margin: 0 5px; 
+            user-select: none;
+            cursor: default;
+        }
+
+        /* --- REVIEWS CONTENT STYLING --- */
+        .reviews-wrapper {
+            flex: 1; 
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .reviews-header {
+            color: black; 
+            text-shadow: none; 
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .reviews-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* Review Card Style - Matching Home .info-card */
+        .review-card {
+            background-color: rgba(255, 255, 255, 0.95); 
+            color: #333;
+            border-radius: 15px;
+            flex: 1; 
+            min-width: 300px; 
+            max-width: 450px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 30px;
+            box-sizing: border-box;
+            text-align: left;
+            position: relative;
+        }
+
+        .review-card h3 {
+            color: #005eb8;
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+
+        .stars {
+            color: #ffc107; /* Gold color for stars */
+            margin-bottom: 15px;
+        }
+
+        .patient-name {
+            font-style: italic;
+            color: #666;
+            margin-top: 15px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        /* BOTTOM COMPARTMENT STYLING */
+        .bottom-compartment {
+            text-align: center; 
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: auto; 
+        }
+        
+        .bottom-compartment a {
+            color: #fff; 
+            text-decoration: underline;
+        }
+        
+        .bottom-compartment img {
+            margin-top: 20px;
+            max-width: 100%; 
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="header-wrapper">
+        <div class="welcome-container">
+            <h1>Welcome to LTU Health Department</h1>
+            
+            <div class="auth-buttons">
+                {% if session.user_id %}
+                    <a href="{{ url_for('dashboard') }}" class="btn-register">Dashboard</a>
+                    <a href="{{ url_for('logout') }}" class="btn-login">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login_page') }}" class="btn-login">Log in</a>
+                    <a href="{{ url_for('register_page') }}" class="btn-register">Register</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <nav class="main-nav">
+            <a href="{{ url_for('home') }}">Home</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('patient_page') }}">Patient</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('doctor_page') }}">Doctor</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('about_page') }}">About</a>
+        </nav>
+    </header>
+
+    <div class="reviews-wrapper">
+        
+        <div class="reviews-header">
+            <h2>Patient Testimonials</h2>
+            <p>Read what our community says about their journey to better health.</p>
+        </div>
+
+        <div class="reviews-grid">
+            
+            <div class="review-card">
+                <h3>Life-Saving Early Detection</h3>
+                <div class="stars">★★★★★</div>
+                <p>"The stroke prediction tools provided by this department were a wake-up call. The monitoring system flagged my high-risk hypertension early, allowing my GP to intervene before it was too late. I feel safer knowing my health is being tracked so professionally."</p>
+                <div class="patient-name">— Sarah J., 54</div>
+            </div>
+
+            <div class="review-card">
+                <h3>Empowering & Easy to Use</h3>
+                <div class="stars">★★★★★</div>
+                <p>"I was worried that tracking my health data would be complicated, but this platform is incredibly user-friendly. Being able to see my glucose and BMI trends clearly has motivated me to make the lifestyle changes I needed. Highly recommended!"</p>
+                <div class="patient-name">— David A., 62</div>
+            </div>
+
+            <div class="review-card">
+                <h3>Professional Support Network</h3>
+                <div class="stars">★★★★☆</div>
+                <p>"Recovering from a TIA was scary, but the support I received here was phenomenal. The system helps me keep on top of my medication and appointments. It feels like I have a team of doctors looking out for me 24/7."</p>
+                <div class="patient-name">— Margaret O., 71</div>
+            </div>
+
+            <div class="review-card">
+                <h3>Real Peace of Mind</h3>
+                <div class="stars">★★★★★</div>
+                <p>"My family has a history of strokes, so I've always been anxious. This service gives me peace of mind. The focus on prevention and the clear, data-driven advice have helped me lower my risk factors significantly in just six months."</p>
+                <div class="patient-name">— James T., 48</div>
+            </div>
+
+            <div class="review-card">
+                <h3>Secure and Reliable Data</h3>
+                <div class="stars">★★★★★</div>
+                <p>"As someone who works in IT, I really appreciate the visible security features. Knowing my sensitive health data is encrypted and handled ethically makes me trust this service completely with my personal information."</p>
+                <div class="patient-name">— Emily W., 35</div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="bottom-compartment">
+        <h2>Module Goals</h2>
+        <p>Be able to build secure and accessible web applications.</p>
+        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
+        <img src="{{ url_for('static', filename='image_1.png') }}" alt="Leeds Trinity University Banner Logo" width="300" style="margin-top: 20px;">
+    </div>
+
+</body>
+</html>

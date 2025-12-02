@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Medical Team</title>
+    <style>
+        /* RESET & BASICS */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
+            
+            /* FLASK FIX: Background Image */
+            background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
+            
+            background-size: cover;       
+            background-position: center;  
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+        }
+        
+        /* HEADER WRAPPER */
+        .header-wrapper {
+            background-color: #e6f3ff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding-bottom: 10px;
+        }
+
+        .welcome-container {
+            display: flex;             
+            justify-content: space-between; 
+            align-items: center;       
+            padding: 20px 30px 5px 42px; 
+        }
+
+        .welcome-container h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #2c3e50; 
+        }
+
+        /* AUTH BUTTONS */
+        .auth-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .auth-buttons a {
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .btn-login {
+            background-color: #ffffff;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        .btn-login:hover { background-color: #f9f9f9; }
+
+        .btn-register {
+            background-color: #005eb8;
+            color: white;
+            border: 1px solid #005eb8;
+        }
+        .btn-register:hover { background-color: #003087; }
+
+        /* NAVIGATION ROW */
+        .main-nav {
+            padding: 5px 30px 10px 32px; 
+            display: flex;
+            align-items: center;
+        }
+
+        .main-nav a {
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 5px 12px; 
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .main-nav a:hover {
+            color: #005eb8;       
+            background-color: #ffffff; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
+
+        .separator {
+            color: #8fa3ad; 
+            margin: 0 5px; 
+            user-select: none;
+            cursor: default;
+        }
+
+        /* --- DOCTORS CONTENT STYLING --- */
+        .doctors-wrapper {
+            flex: 1; 
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .doctors-header {
+            color: black; 
+            text-shadow: none; 
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .doctors-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* Doctor Card Style */
+        .doctor-card {
+            background-color: rgba(255, 255, 255, 0.95); 
+            color: #333;
+            border-radius: 15px;
+            flex: 1; 
+            min-width: 300px; 
+            max-width: 450px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 30px;
+            box-sizing: border-box;
+            text-align: center; /* Centered for profile photos */
+            transition: transform 0.2s ease;
+        }
+
+        .doctor-card:hover {
+            transform: translateY(-5px); /* Slight lift on hover */
+        }
+
+        /* Circular Profile Image */
+        .doctor-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #e6f3ff;
+            margin-bottom: 15px;
+        }
+
+        .doctor-card h3 {
+            color: #005eb8;
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+
+        .specialty {
+            color: #003087;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .experience {
+            font-size: 0.95em;
+            line-height: 1.6;
+            color: #555;
+            text-align: left; /* Align text left for readability */
+        }
+
+        /* BOTTOM COMPARTMENT STYLING */
+        .bottom-compartment {
+            text-align: center; 
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: auto; 
+        }
+        
+        .bottom-compartment a {
+            color: #fff; 
+            text-decoration: underline;
+        }
+        
+        .bottom-compartment img {
+            margin-top: 20px;
+            max-width: 100%; 
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="header-wrapper">
+        <div class="welcome-container">
+            <h1>Welcome to LTU Health Department</h1>
+            
+            <div class="auth-buttons">
+                {% if session.user_id %}
+                    <a href="{{ url_for('dashboard') }}" class="btn-register">Dashboard</a>
+                    <a href="{{ url_for('logout') }}" class="btn-login">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login_page') }}" class="btn-login">Log in</a>
+                    <a href="{{ url_for('register_page') }}" class="btn-register">Register</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <nav class="main-nav">
+            <a href="{{ url_for('home') }}">Home</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('patient_page') }}">Patient</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('doctor_page') }}">Doctor</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('about_page') }}">About</a>
+        </nav>
+    </header>
+
+    <div class="doctors-wrapper">
+        
+        <div class="doctors-header">
+            <h2>Meet Our Specialists</h2>
+            <p>Expert care driven by data, experience, and compassion.</p>
+        </div>
+
+        <div class="doctors-grid">
+            
+            <div class="doctor-card">
+                <img src="{{ url_for('static', filename='Dr. Alistair Sterling.jpg') }}" alt="Dr. Alistair Sterling" class="doctor-photo">
+                <h3>Dr. Alistair Sterling</h3>
+                <span class="specialty">Consultant Cardiologist</span>
+                <p class="experience">With over 22 years of experience in neurological care, Dr. Sterling leads our Stroke Prevention Unit. He specializes in the early detection of ischemic strokes and has pioneered several rapid-response protocols used by the NHS.</p>
+            </div>
+
+            <div class="doctor-card">
+                <img src="{{ url_for('static', filename='Dr. Priya Kapoor.jpg') }}" alt="Dr. Priya Kapoor" class="doctor-photo">
+                <h3>Dr. Priya Kapoor</h3>
+                <span class="specialty">Senior Cardiologist</span>
+                <p class="experience">Dr. Kapoor brings 15 years of expertise in managing hypertension and atrial fibrillation—key risk factors for stroke. She is a strong advocate for lifestyle medicine and works closely with patients to manage heart health proactively.</p>
+            </div>
+
+            <div class="doctor-card">
+                <img src="{{ url_for('static', filename='Dr. Thomas Wu.png') }}" alt="Dr. Thomas Wu" class="doctor-photo">
+                <h3>Dr. Thomas Wu</h3>
+                <span class="specialty">Rehabilitation Specialist</span>
+                <p class="experience">Dr. Wu has spent 14 years helping stroke survivors regain independence. His compassionate approach to physical and occupational therapy has helped hundreds of patients navigate their recovery journey with confidence and dignity.</p>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="bottom-compartment">
+        <h2>Learning Goals</h2>
+        <p>I want to build secure and accessible web applications.</p>
+        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
+        
+        <img src="{{ url_for('static', filename='image_1.png') }}" alt="Leeds Trinity University Banner Logo" width="300" style="margin-top: 20px;">
+    </div>
+
+</body>
+</html>

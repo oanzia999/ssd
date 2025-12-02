@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Health Dashboard</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; min-height: 100vh;
+            /* UPDATED: Background Image changed to dashboardbackground.png */
+            background-image: url("{{ url_for('static', filename='dashboardbackground.png') }}"); 
+            background-size: cover; background-attachment: fixed; }
+        /* UPDATED: Header background made transparent */
+        .header-wrapper { background-color: transparent; padding-bottom: 10px; }
+        .welcome-container { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px 5px 42px; }
+        .welcome-container h1 { margin: 0; font-size: 24px; color: #2c3e50; }
+        .auth-buttons a { text-decoration: none; padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 14px; background: white; border: 1px solid #ccc; color: #333; }
+        .main-nav { padding: 5px 30px 10px 32px; display: flex; align-items: center; }
+        .main-nav a { text-decoration: none; color: #333; font-size: 16px; font-weight: 500; padding: 5px 12px; }
+        .separator { color: #8fa3ad; margin: 0 5px; }
+
+        .dashboard-wrapper { flex: 1; padding: 40px; display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; }
+        .card { background: rgba(255,255,255,0.95); padding: 30px; border-radius: 15px; flex: 1; min-width: 300px; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        
+        .risk-circle {
+            width: 120px; height: 120px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 24px; font-weight: bold; color: white;
+            margin: 20px auto;
+            border: 5px solid rgba(0,0,0,0.1);
+        }
+        
+        .btn-action { display: block; width: 100%; padding: 10px; margin-top: 10px; border: none; border-radius: 5px; cursor: pointer; text-align: center; text-decoration: none; font-weight: bold; }
+        .btn-pdf { background-color: #005eb8; color: white; }
+        .btn-book { background-color: #dc3545; color: white; }
+        .btn-update { background-color: #28a745; color: white; }
+        .form-control { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        
+        .bottom-compartment { text-align: center; color: white; padding: 20px; margin-top: auto; }
+    </style>
+</head>
+<body>
+    <header class="header-wrapper" style="background-color: #fefefe;">
+        <div class="welcome-container">
+            <h1>LTU Health Dashboard</h1>
+            <div class="auth-buttons"><a href="{{ url_for('logout') }}">Logout</a></div>
+        </div>
+        <nav class="main-nav">
+            <a href="{{ url_for('home') }}">Home</a><span class="separator">|</span>
+            <a href="{{ url_for('patient_page') }}">Patient</a><span class="separator">|</span>
+            <a href="{{ url_for('doctor_page') }}">Doctor</a><span class="separator">|</span>
+            <a href="{{ url_for('about_page') }}">About</a>
+        </nav>
+    </header>
+
+    <div class="dashboard-wrapper">
+        <!-- RISK CARD -->
+        <div class="card">
+            <h2 style="color: #005eb8; text-align: center;">Stroke Risk Assessment</h2>
+            
+            <div class="risk-circle" style="background-color: {% if risk_score > 50 %}#dc3545{% elif risk_score > 20 %}#ffc107{% else %}#28a745{% endif %};">
+                {{ risk_score }}%
+            </div>
+            
+            <p style="text-align: center;">
+                Status: 
+                {% if risk_score > 50 %}<strong>HIGH RISK</strong>
+                {% elif risk_score > 20 %}<strong>MODERATE RISK</strong>
+                {% else %}<strong>LOW RISK</strong>{% endif %}
+            </p>
+
+            <a href="{{ url_for('download_report') }}" class="btn-action btn-pdf">📄 Download AI Health Report (PDF)</a>
+            
+            {% if risk_score > 20 %}
+                <hr>
+                <h3 style="color: #dc3545;">Book Urgent Appointment</h3>
+                <form action="{{ url_for('book_appointment') }}" method="POST">
+                    <label>Preferred Date:</label>
+                    <input type="date" name="date" class="form-control" required>
+                    <input type="text" name="reason" placeholder="Reason (e.g. High Risk Alert)" class="form-control" required>
+                    <button type="submit" class="btn-action btn-book">Book Now</button>
+                </form>
+            {% endif %}
+        </div>
+
+        <!-- PROFILE CARD -->
+        <div class="card">
+            <h2 style="color: #333;">My Medical Profile</h2>
+            <form action="{{ url_for('update_profile') }}" method="POST">
+                <label>NHS Number:</label>
+                <input type="text" name="nhs_number" value="{{ user['nhs_number'] }}" class="form-control">
+                
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Age:</label>
+                        <input type="number" name="age" value="{{ user['age'] }}" class="form-control">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>BMI:</label>
+                        <input type="number" step="0.1" name="bmi" value="{{ user['bmi'] }}" class="form-control" placeholder="e.g. 24.5">
+                    </div>
+                </div>
+
+                <label>Avg Glucose Level:</label>
+                <input type="number" step="0.1" name="avg_glucose_level" value="{{ user['avg_glucose_level'] }}" class="form-control" placeholder="e.g. 90.5">
+                
+                <label>Smoking Status:</label>
+                <select name="smoking_status" class="form-control">
+                    <option value="never smoked" {% if user['smoking_status'] == 'never smoked' %}selected{% endif %}>Never Smoked</option>
+                    <option value="formerly smoked" {% if user['smoking_status'] == 'formerly smoked' %}selected{% endif %}>Formerly Smoked</option>
+                    <option value="smokes" {% if user['smoking_status'] == 'smokes' %}selected{% endif %}>Current Smoker</option>
+                </select>
+
+                <div style="margin: 15px 0;">
+                    <label style="display: block;">
+                        <input type="checkbox" name="hypertension" value="1" {% if user['hypertension'] == 1 %}checked{% endif %}> 
+                        I have Hypertension (High BP)
+                    </label>
+                    <label style="display: block;">
+                        <input type="checkbox" name="heart_disease" value="1" {% if user['heart_disease'] == 1 %}checked{% endif %}> 
+                        I have a history of Heart Disease
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn-action btn-update">Update & Recalculate Risk</button>
+            </form>
+
+            <h3 style="margin-top: 30px;">My Appointments</h3>
+            <ul>
+                {% for apt in appointments %}
+                    <li>{{ apt['appointment_date'] }} - <strong>{{ apt['status'] }}</strong></li>
+                {% else %}
+                    <li>No appointments booked.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="bottom-compartment">
+        <img src="{{ url_for('static', filename='image_1.png') }}" width="300">
+    </div>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - LTU Health</title>
+    <style>
+        /* --- SHARED STYLES --- */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
+            /* FLASK FIX: Background Image */
+            background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
+            background-size: cover;       
+            background-position: center;  
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+        }
+        
+        .header-wrapper {
+            background-color: #e6f3ff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding-bottom: 10px;
+        }
+
+        .welcome-container {
+            display: flex;             
+            justify-content: space-between; 
+            align-items: center;       
+            padding: 20px 30px 5px 42px; 
+        }
+
+        .welcome-container h1 { margin: 0; font-size: 24px; color: #2c3e50; }
+
+        .auth-buttons { display: flex; gap: 15px; }
+        .auth-buttons a {
+            text-decoration: none; padding: 8px 20px; border-radius: 5px;
+            font-weight: bold; transition: all 0.3s ease; font-size: 14px;
+        }
+        .btn-login { background-color: #ffffff; color: #333; border: 1px solid #ccc; }
+        .btn-login:hover { background-color: #f9f9f9; }
+        .btn-register { background-color: #005eb8; color: white; border: 1px solid #005eb8; }
+        .btn-register:hover { background-color: #003087; }
+
+        .main-nav { padding: 5px 30px 10px 32px; display: flex; align-items: center; }
+        .main-nav a {
+            text-decoration: none; color: #333; font-size: 16px; font-weight: 500;
+            padding: 5px 12px; border-radius: 4px; transition: all 0.2s ease;
+        }
+        .main-nav a:hover { color: #005eb8; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .separator { color: #8fa3ad; margin: 0 5px; user-select: none; cursor: default; }
+
+        /* --- REGISTER FORM SPECIFIC --- */
+        .auth-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .auth-card {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 450px; /* Slightly wider for register */
+        }
+
+        .auth-card h2 { color: #005eb8; margin-top: 0; margin-bottom: 10px; text-align: center; }
+        .auth-card p.subtitle { color: #666; margin-bottom: 25px; text-align: center; font-size: 0.9em; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #333; font-weight: bold; font-size: 0.9em; }
+        
+        .form-control {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;
+            box-sizing: border-box; font-size: 14px;
+        }
+        .form-control:focus { border-color: #005eb8; outline: none; }
+
+        /* Password Strength Visuals */
+        .password-requirements {
+            font-size: 0.75em; color: #666; margin-top: 5px;
+            background-color: #f0f4f8; padding: 8px; border-radius: 4px;
+            border-left: 3px solid #005eb8;
+        }
+
+        .btn-submit {
+            width: 100%; padding: 12px; background-color: #005eb8; color: white;
+            border: none; border-radius: 5px; font-size: 16px; font-weight: bold;
+            cursor: pointer; transition: background-color 0.3s; margin-top: 15px;
+        }
+        .btn-submit:hover { background-color: #003087; }
+
+        .form-footer { margin-top: 20px; font-size: 0.9em; color: #666; text-align: center; }
+        .form-footer a { color: #005eb8; text-decoration: none; }
+        .form-footer a:hover { text-decoration: underline; }
+
+        /* FLASH MESSAGES */
+        .alert {
+            padding: 10px; background-color: #f8d7da; color: #721c24;
+            border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px; font-size: 0.9em;
+        }
+
+        .bottom-compartment {
+            text-align: center; color: white; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 20px; width: 100%; box-sizing: border-box; margin-top: auto; 
+        }
+        .bottom-compartment a { color: #fff; text-decoration: underline; }
+        .bottom-compartment img { margin-top: 20px; max-width: 100%; }
+    </style>
+</head>
+<body>
+
+    <header class="header-wrapper">
+        <div class="welcome-container">
+            <h1>Welcome to LTU Health Department</h1>
+            <div class="auth-buttons">
+                <a href="{{ url_for('login_page') }}" class="btn-login">Log in</a>
+                <a href="{{ url_for('register_page') }}" class="btn-register">Register</a>
+            </div>
+        </div>
+        <nav class="main-nav">
+            <a href="{{ url_for('home') }}">Home</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('patient_page') }}">Patient</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('doctor_page') }}">Doctor</a>
+            <span class="separator">|</span>
+            <a href="{{ url_for('about_page') }}">About</a>
+        </nav>
+    </header>
+
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="alert">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <h2>Create an Account</h2>
+            <p class="subtitle">Join our secure stroke prevention program.</p>
+            
+            <form action="{{ url_for('register') }}" method="POST">
+                
+                <div class="form-group">
+                    <label for="fullname">Full Name</label>
+                    <input type="text" id="fullname" name="fullname" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="name@example.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nhs-number">NHS Number (Optional)</label>
+                    <input type="text" id="nhs-number" name="nhs-number" class="form-control" placeholder="10-digit number">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Create Password</label>
+                    <input type="password" id="password" name="password" class="form-control" 
+                           required minlength="8" 
+                           pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                           title="Must contain at least one number and one uppercase and lowercase letter, and at least 8 or more characters"
+                           autocomplete="new-password">
+                    
+                    <div class="password-requirements">
+                        Security Check: Must be 8+ chars, include uppercase & number.
+                        <br><em>Passwords are securely hashed (Bcrypt) upon submission.</em>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input type="password" id="confirm-password" name="confirm-password" class="form-control" required>
+                </div>
+
+                <button type="submit" class="btn-submit">Register Securely</button>
+            </form>
+
+            <div class="form-footer">
+                Already have an account? <a href="{{ url_for('login_page') }}">Log in here</a>.
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-compartment">
+        <h2>Module Goals</h2>
+        <p>Be able to build secure and accessible web applications.</p>
+        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
+        <img src="{{ url_for('static', filename='image_1.png') }}" alt="Leeds Trinity University Banner Logo" width="300" style="margin-top: 20px;">
+    </div>
+</body>
+</html>

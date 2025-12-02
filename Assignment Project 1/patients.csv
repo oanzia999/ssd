@@ -1,0 +1,5 @@
+fullname,email,nhs_number,password
+John Doe,john@test.com,1234567890,Password123!
+Jane Smith,jane@test.com,987654321,SecurePass1!
+Admin User,admin@test.com,1122334455,AdminPass99!
+,patient1@test.com,,Password123!
