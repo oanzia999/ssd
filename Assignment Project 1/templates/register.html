@@ -12,7 +12,6 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh; 
-            /* FLASK FIX: Background Image */
             background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
             background-size: cover;       
             background-position: center;  
@@ -68,7 +67,7 @@
             border-radius: 15px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             width: 100%;
-            max-width: 450px; /* Slightly wider for register */
+            max-width: 450px; 
         }
 
         .auth-card h2 { color: #005eb8; margin-top: 0; margin-bottom: 10px; text-align: center; }
@@ -151,6 +150,7 @@
             <p class="subtitle">Join our secure stroke prevention program.</p>
             
             <form action="{{ url_for('register') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
                 <div class="form-group">
                     <label for="fullname">Full Name</label>
@@ -177,7 +177,6 @@
                     
                     <div class="password-requirements">
                         Security Check: Must be 8+ chars, include uppercase & number.
-                        <br><em>Passwords are securely hashed (Bcrypt) upon submission.</em>
                     </div>
                 </div>
 

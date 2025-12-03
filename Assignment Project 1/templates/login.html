@@ -12,7 +12,6 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh; 
-            /* FLASK FIX: Background Image */
             background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
             background-size: cover;       
             background-position: center;  
@@ -96,19 +95,10 @@
             transition: color 0.3s;
         }
 
-        .tab-btn.active {
-            color: #005eb8;
-        }
-
+        .tab-btn.active { color: #005eb8; }
         .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -12px;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background-color: #005eb8;
-            border-radius: 2px;
+            content: ''; position: absolute; bottom: -12px; left: 0; width: 100%;
+            height: 3px; background-color: #005eb8; border-radius: 2px;
         }
 
         /* HEADER & FORMS */
@@ -140,16 +130,13 @@
         }
         .btn-submit:hover { background-color: #003087; }
 
-        /* Doctor Theme Override */
-        .btn-doctor { background-color: #008080; } /* Teal for doctors */
+        .btn-doctor { background-color: #008080; }
         .btn-doctor:hover { background-color: #006666; }
 
-        /* Admin Theme Override */
         .admin-theme h2 { color: #333; }
         .btn-admin { background-color: #333; }
         .btn-admin:hover { background-color: #000; }
 
-        /* Footer Links */
         .form-footer { margin-top: 20px; font-size: 0.9em; color: #666; }
         .form-footer a { color: #005eb8; text-decoration: none; }
         .form-footer a:hover { text-decoration: underline; }
@@ -160,23 +147,16 @@
         }
         .forgot-password:hover { color: #005eb8; text-decoration: underline; }
 
-        /* HIDDEN ADMIN LINK */
         .admin-trigger {
-            margin-top: 30px;
-            font-size: 11px;
-            color: #ccc;
-            cursor: pointer;
-            display: inline-block;
+            margin-top: 30px; font-size: 11px; color: #ccc; cursor: pointer; display: inline-block;
         }
         .admin-trigger:hover { color: #999; text-decoration: underline; }
 
-        /* FLASH MESSAGES */
         .alert {
             padding: 10px; background-color: #f8d7da; color: #721c24;
             border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px; font-size: 0.9em;
         }
 
-        /* BOTTOM COMPARTMENT */
         .bottom-compartment {
             text-align: center; color: white; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
             padding: 20px; width: 100%; box-sizing: border-box; margin-top: auto; 
@@ -245,6 +225,8 @@
                 <p class="subtitle">Access your personal health dashboard.</p>
                 
                 <form action="{{ url_for('login') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                     <div class="form-group">
                         <label for="p-email">Email Address</label>
                         <input type="email" id="p-email" name="email" class="form-control" placeholder="e.g. name@example.com" required>
@@ -267,6 +249,8 @@
                 <p class="subtitle">Secure access for medical staff.</p>
                 
                 <form action="{{ url_for('doctor_login') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                     <div class="form-group">
                         <label for="d-id">Medical License ID / Email</label>
                         <input type="text" id="d-id" name="doctor_id" class="form-control" placeholder="e.g. GMC-123456" required>
@@ -285,6 +269,8 @@
                 <p class="subtitle">System Management Access</p>
                 
                 <form action="{{ url_for('admin_login') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                     <div class="form-group">
                         <label for="a-user">Admin Username</label>
                         <input type="text" id="a-user" name="username" class="form-control" required>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard</title>
+    <style>
+        /* --- INHERITED STYLES --- */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
+            background-image: url("{{ url_for('static', filename='background.jpg') }}"); 
+            background-size: cover;       
+            background-position: center;  
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+        }
+        
+        .header-wrapper {
+            background-color: #e6f3ff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding-bottom: 10px;
+        }
+
+        .welcome-container {
+            display: flex;             
+            justify-content: space-between; 
+            align-items: center;       
+            padding: 20px 30px 5px 42px; 
+        }
+
+        .welcome-container h1 { margin: 0; font-size: 24px; color: #2c3e50; }
+
+        .auth-buttons a {
+            text-decoration: none; padding: 8px 20px; border-radius: 5px;
+            font-weight: bold; transition: all 0.3s ease; font-size: 14px;
+        }
+
+        .btn-logout { background-color: #ffffff; color: #c0392b; border: 1px solid #c0392b; }
+        .btn-logout:hover { background-color: #fceceb; }
+
+        .separator { color: #8fa3ad; margin: 0 5px; cursor: default; }
+
+        /* --- DASHBOARD STYLES --- */
+        .main-content-wrapper {
+            flex: 1; padding: 40px 20px; display: flex; flex-direction: column; 
+            align-items: center; gap: 30px;
+        }
+
+        /* LAYOUT FOR TOP ROW (Two Columns) */
+        .top-row-grid {
+            display: flex;
+            gap: 30px;
+            width: 90%;
+            max-width: 1200px;
+            flex-wrap: wrap; /* Wraps on small screens */
+        }
+
+        .dashboard-card {
+            background-color: rgba(255, 255, 255, 0.95); 
+            border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 30px; box-sizing: border-box; color: #333;
+        }
+
+        .half-width { flex: 1; min-width: 350px; }
+        .full-width { width: 90%; max-width: 1200px; }
+
+        .dashboard-header {
+            border-bottom: 2px solid #005eb8; padding-bottom: 10px; margin-bottom: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .dashboard-header h2 { margin: 0; color: #005eb8; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: #005eb8; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+
+        .action-btn {
+            padding: 5px 10px; text-decoration: none; border-radius: 4px;
+            font-size: 12px; margin-right: 5px; color: white;
+        }
+        .btn-view { background-color: #3498db; }
+        .btn-edit { background-color: #f39c12; }
+        .btn-delete { background-color: #c0392b; }
+        .btn-approve { background-color: #27ae60; }
+        .btn-neglect { background-color: #7f8c8d; }
+
+        .bottom-compartment {
+            text-align: center; color: white; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 20px; margin-top: auto; 
+        }
+        .bottom-compartment a { color: #fff; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <header class="header-wrapper">
+        <div class="welcome-container">
+            <h1>Welcome, {{ doctor_name }}</h1>
+            <div class="auth-buttons">
+                <a href="{{ url_for('logout') }}" class="btn-logout">Log Out</a>
+            </div>
+        </div>
+        </header>
+
+    <div class="main-content-wrapper">
+
+        <div class="top-row-grid">
+            
+            <div class="dashboard-card half-width">
+                <div class="dashboard-header">
+                    <h2>Pending Requests</h2>
+                    <span style="font-size: 0.9em; color: #e67e22; font-weight: bold;">Action Needed</span>
+                </div>
+                
+                {% if pending_appointments %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Patient</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for apt in pending_appointments %}
+                        <tr>
+                            <td>{{ apt['appointment_date'] }}</td>
+                            <td>{{ apt['patient_name'] }}<br><small style="color:#666;">{{ apt['reason'] }}</small></td>
+                            <td>
+                                <a href="{{ url_for('process_appointment', id=apt['id'], action='approve') }}" class="action-btn btn-approve">Approve</a>
+                                <a href="{{ url_for('process_appointment', id=apt['id'], action='neglect') }}" class="action-btn btn-neglect">Neglect</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                    <p style="color: #666; padding: 20px; text-align: center;">No pending requests.</p>
+                {% endif %}
+            </div>
+
+            <div class="dashboard-card half-width">
+                <div class="dashboard-header">
+                    <h2>Confirmed Schedule</h2>
+                    <span style="font-size: 0.9em; color: #27ae60; font-weight: bold;">Upcoming</span>
+                </div>
+
+                {% if confirmed_appointments %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Patient</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for apt in confirmed_appointments %}
+                        <tr>
+                            <td style="font-weight: bold; color: #005eb8;">{{ apt['appointment_date'] }}</td>
+                            <td>{{ apt['patient_name'] }}</td>
+                            <td>{{ apt['reason'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                    <p style="color: #666; padding: 20px; text-align: center;">No confirmed appointments yet.</p>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <div class="dashboard-card full-width">
+            <div class="dashboard-header">
+                <h2>Manage Patients</h2>
+                <a href="#" style="background: #005eb8; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-size: 14px;">+ Add New Patient</a>
+            </div>
+
+            {% if patients %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Full Name</th>
+                        <th>Age</th>
+                        <th>Gender</th>
+                        <th>Stroke Risk</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patient in patients %}
+                    <tr>
+                        <td>{{ patient.id }}</td>
+                        <td>{{ patient.fullname }}</td> 
+                        <td>{{ patient.age }}</td>
+                        <td>{{ patient.gender }}</td>
+                        <td>
+                            {% if patient.hypertension == 1 or patient.heart_disease == 1 %}
+                                <span style="color: #c0392b; font-weight: bold;">High Risk</span>
+                            {% else %}
+                                <span style="color: #27ae60;">Normal</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="#" class="action-btn btn-view">View</a>
+                            <a href="#" class="action-btn btn-edit">Edit</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <p style="text-align: center; color: #666; padding: 20px;">No patients found in the database.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <div class="bottom-compartment">
+        <h2>Module Goals</h2>
+        <p>Be able to build secure and accessible web applications.</p>
+        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
+        <img src="{{ url_for('static', filename='image_1.png') }}" width="300" style="margin-top: 20px;">
+    </div>
+
+</body>
+</html>
