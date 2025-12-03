@@ -42,21 +42,13 @@
         .btn-logout { background-color: #ffffff; color: #c0392b; border: 1px solid #c0392b; }
         .btn-logout:hover { background-color: #fceceb; }
 
-        .separator { color: #8fa3ad; margin: 0 5px; cursor: default; }
-
-        /* --- DASHBOARD STYLES --- */
         .main-content-wrapper {
             flex: 1; padding: 40px 20px; display: flex; flex-direction: column; 
             align-items: center; gap: 30px;
         }
 
-        /* LAYOUT FOR TOP ROW (Two Columns) */
         .top-row-grid {
-            display: flex;
-            gap: 30px;
-            width: 90%;
-            max-width: 1200px;
-            flex-wrap: wrap; /* Wraps on small screens */
+            display: flex; gap: 30px; width: 90%; max-width: 1200px; flex-wrap: wrap; 
         }
 
         .dashboard-card {
@@ -75,9 +67,17 @@
         }
         .dashboard-header h2 { margin: 0; color: #005eb8; }
 
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        /* SCROLLABLE TABLE */
+        .table-scroll-wrapper {
+            max-height: 500px; 
+            overflow-y: auto;  
+            border: 1px solid #ddd;
+            display: block;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
-        th { background-color: #005eb8; color: white; }
+        th { background-color: #005eb8; color: white; position: sticky; top: 0; z-index: 10; }
         tr:hover { background-color: #f1f1f1; }
 
         .action-btn {
@@ -106,7 +106,7 @@
                 <a href="{{ url_for('logout') }}" class="btn-logout">Log Out</a>
             </div>
         </div>
-        </header>
+    </header>
 
     <div class="main-content-wrapper">
 
@@ -117,15 +117,10 @@
                     <h2>Pending Requests</h2>
                     <span style="font-size: 0.9em; color: #e67e22; font-weight: bold;">Action Needed</span>
                 </div>
-                
                 {% if pending_appointments %}
                 <table>
                     <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Patient</th>
-                            <th>Actions</th>
-                        </tr>
+                        <tr><th>Date</th><th>Patient</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                         {% for apt in pending_appointments %}
@@ -133,8 +128,8 @@
                             <td>{{ apt['appointment_date'] }}</td>
                             <td>{{ apt['patient_name'] }}<br><small style="color:#666;">{{ apt['reason'] }}</small></td>
                             <td>
-                                <a href="{{ url_for('process_appointment', id=apt['id'], action='approve') }}" class="action-btn btn-approve">Approve</a>
-                                <a href="{{ url_for('process_appointment', id=apt['id'], action='neglect') }}" class="action-btn btn-neglect">Neglect</a>
+                                <a href="{{ url_for('process_appointment', apt_id=apt['_id'], action='approve') }}" class="action-btn btn-approve">Approve</a>
+                                <a href="{{ url_for('process_appointment', apt_id=apt['_id'], action='neglect') }}" class="action-btn btn-neglect">Neglect</a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -150,16 +145,9 @@
                     <h2>Confirmed Schedule</h2>
                     <span style="font-size: 0.9em; color: #27ae60; font-weight: bold;">Upcoming</span>
                 </div>
-
                 {% if confirmed_appointments %}
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Patient</th>
-                            <th>Reason</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Date</th><th>Patient</th><th>Reason</th></tr></thead>
                     <tbody>
                         {% for apt in confirmed_appointments %}
                         <tr>
@@ -180,43 +168,43 @@
         <div class="dashboard-card full-width">
             <div class="dashboard-header">
                 <h2>Manage Patients</h2>
-                <a href="#" style="background: #005eb8; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-size: 14px;">+ Add New Patient</a>
             </div>
 
             {% if patients %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Full Name</th>
-                        <th>Age</th>
-                        <th>Gender</th>
-                        <th>Stroke Risk</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for patient in patients %}
-                    <tr>
-                        <td>{{ patient.id }}</td>
-                        <td>{{ patient.fullname }}</td> 
-                        <td>{{ patient.age }}</td>
-                        <td>{{ patient.gender }}</td>
-                        <td>
-                            {% if patient.hypertension == 1 or patient.heart_disease == 1 %}
-                                <span style="color: #c0392b; font-weight: bold;">High Risk</span>
-                            {% else %}
-                                <span style="color: #27ae60;">Normal</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="#" class="action-btn btn-view">View</a>
-                            <a href="#" class="action-btn btn-edit">Edit</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-scroll-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Full Name</th>
+                            <th>Age</th>
+                            <th>Gender</th>
+                            <th>Stroke Risk</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ patient['fullname'] }}</td> 
+                            <td>{{ patient['age']|int }}</td>
+                            <td>{{ patient['gender'] }}</td>
+                            <td>
+                                {% if patient.get('hypertension') == 1 or patient.get('heart_disease') == 1 or patient.get('stroke_history') == 1 %}
+                                    <span style="color: #c0392b; font-weight: bold;">High Risk</span>
+                                {% else %}
+                                    <span style="color: #27ae60;">Normal</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('edit_patient', patient_id=patient['_id']) }}" class="action-btn btn-edit">Edit</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
                 <p style="text-align: center; color: #666; padding: 20px;">No patients found in the database.</p>
             {% endif %}
@@ -225,9 +213,6 @@
     </div>
 
     <div class="bottom-compartment">
-        <h2>Module Goals</h2>
-        <p>Be able to build secure and accessible web applications.</p>
-        <p>Learn more at <a href="https://leedstrinity.ac.uk">Leeds Trinity University</a>.</p>
         <img src="{{ url_for('static', filename='image_1.png') }}" width="300" style="margin-top: 20px;">
     </div>
 

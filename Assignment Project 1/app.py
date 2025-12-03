@@ -1,36 +1,79 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
+from pymongo import MongoClient
+from werkzeug.security import check_password_hash
 from fpdf import FPDF
 from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from cryptography.fernet import Fernet
 import bleach
 import os
 import datetime
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_session_security'
-
-# --- SECURITY 1: CSRF PROTECTION ---
 csrf = CSRFProtect(app)
+# STEP 3: BRUTE FORCE PROTECTION (Rate Limiting)
+limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
 
+# --- CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.path.join(BASE_DIR, 'database.db')
+SQLITE_DB = os.path.join(BASE_DIR, 'auth.db')
+MONGO_URI = "mongodb://localhost:27017/"
+MONGO_DB_NAME = "ltu_health_records"
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
+KEY_FILE = os.path.join(BASE_DIR, "secret.key")
+
+# --- ENCRYPTION HANDLER (STEP 4) ---
+try:
+    with open(KEY_FILE, "rb") as kf:
+        cipher = Fernet(kf.read())
+except FileNotFoundError:
+    print("!!! ERROR: secret.key not found. Run setup_hybrid.py first!")
+    cipher = None
 
 
-def get_db():
-    conn = sqlite3.connect(DATABASE)
+def encrypt_data(text):
+    if not text: return ""
+    return cipher.encrypt(str(text).encode()).decode()
+
+
+def decrypt_data(text):
+    if not text: return ""
+    try:
+        return cipher.decrypt(str(text).encode()).decode()
+    except:
+        return "[Encrypted]"
+
+
+# --- DATABASE CONNECTORS ---
+def get_sqlite_conn():
+    conn = sqlite3.connect(SQLITE_DB)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-# --- SECURITY 2: INPUT SANITISATION ---
+def get_mongo_db():
+    client = MongoClient(MONGO_URI)
+    return client[MONGO_DB_NAME]
+
+
+# --- AUDIT LOGGING (STEP 2) ---
+def log_audit(user_email, action, details):
+    db = get_mongo_db()
+    db.audit_logs.insert_one({
+        "user": user_email, "action": action, "details": details,
+        "ip": request.remote_addr, "timestamp": datetime.datetime.now()
+    })
+
+
 def clean_input(text):
     if text is None: return ""
     return bleach.clean(str(text), tags=[], attributes={}, strip=True)
 
 
-# --- SECURITY 3: SECURE HEADERS ---
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -39,67 +82,28 @@ def add_security_headers(response):
     return response
 
 
-# --- AUTO-REPAIR DATABASE ---
-def auto_repair_database():
-    try:
-        conn = sqlite3.connect(DATABASE)
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'")
-        if not cursor.fetchone():
-            cursor.execute('''CREATE TABLE appointments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                patient_id INTEGER, doctor_id INTEGER,
-                appointment_date TEXT, reason TEXT, status TEXT DEFAULT 'Pending')''')
-
-        cursor.execute("PRAGMA table_info(appointments)")
-        cols = [i[1] for i in cursor.fetchall()]
-        if 'doctor_id' not in cols:
-            cursor.execute("ALTER TABLE appointments ADD COLUMN doctor_id INTEGER")
-
-        pw = generate_password_hash('Doctor123!', method='pbkdf2:sha256')
-        docs = [("Dr. Alistair Sterling", "dr.sterling@ltu.ac.uk", "GMC12345"),
-                ("Dr. Priya Kapoor", "dr.kapoor@ltu.ac.uk", "GMC67890"),
-                ("Dr. Thomas Wu", "dr.thomaswu@ltu.ac.uk", "GMC54321")]
-
-        for name, email, nhs in docs:
-            cursor.execute("SELECT id FROM patients WHERE email=?", (email,))
-            if cursor.fetchone():
-                cursor.execute("UPDATE patients SET password_hash=?, fullname=?, role='doctor' WHERE email=?",
-                               (pw, name, email))
-            else:
-                cursor.execute(
-                    "INSERT INTO patients (fullname, email, nhs_number, password_hash, role, stroke_risk_score) VALUES (?,?,?,?,'doctor',0)",
-                    (name, email, nhs, pw))
-
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"DB Error: {e}")
-
-
-auto_repair_database()
-
-
 # --- RISK ENGINE ---
-def calculate_stroke_risk(user):
+def calculate_stroke_risk(mongo_doc):
     score = 0
     advice = []
-    try:
-        age = int(user['age']) if user['age'] else 0
-        glucose = float(user['avg_glucose_level']) if user['avg_glucose_level'] else 0
-        bmi = float(user['bmi']) if user['bmi'] else 0
-    except ValueError:
-        age, glucose, bmi = 0, 0, 0
 
-    if age > 60: score += 20; advice.append("Age > 60: Higher risk factor.")
-    if user['hypertension'] == 1: score += 20; advice.append("Hypertension: Monitor BP.")
-    if user['heart_disease'] == 1: score += 20; advice.append("Heart Disease: Follow treatment.")
+    age = mongo_doc.get('age', 0)
+    hypertension = mongo_doc.get('hypertension', 0)
+    heart_disease = mongo_doc.get('heart_disease', 0)
+    glucose = mongo_doc.get('avg_glucose_level', 0)
+    bmi = mongo_doc.get('bmi', 0)
+    smoking = mongo_doc.get('smoking_status', 'Unknown')
+    stroke_history = mongo_doc.get('stroke_history', 0)
+
+    if stroke_history == 1: score += 30; advice.append("History of Stroke: High recurrence risk.")
+    if heart_disease == 1: score += 20; advice.append("Heart Disease: Follow treatment.")
+    if hypertension == 1: score += 20; advice.append("Hypertension: Monitor BP.")
+    if age > 60: score += 15; advice.append("Age > 60: Increased risk.")
     if glucose > 200: score += 15; advice.append("High Glucose: Screen for diabetes.")
     if bmi > 30: score += 10; advice.append("BMI > 30: Weight management advised.")
-    if user['smoking_status'] == 'smokes': score += 25; advice.append("Stop smoking immediately.")
+    if smoking == 'smokes': score += 25; advice.append("Smoking: Critical risk.")
 
-    if score == 0: advice.append("No major risks detected. Maintain healthy lifestyle.")
+    if score == 0: advice.append("No major risks. Maintain healthy lifestyle.")
     return min(score, 100), advice
 
 
@@ -135,23 +139,28 @@ def logout():
     return redirect(url_for('home'))
 
 
+# --- AUTH (Rate Limited) ---
 @app.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
     identifier = clean_input(request.form.get('email') or request.form.get('username') or request.form.get('doctor_id'))
     password = request.form['password']
 
-    if not identifier:
-        flash('Please enter your email, username, or Medical ID.')
-        return redirect(url_for('login_page'))
+    if not identifier: return redirect(url_for('login_page'))
 
-    conn = get_db()
-    user = conn.execute('SELECT * FROM patients WHERE email = ? OR nhs_number = ?', (identifier, identifier)).fetchone()
+    conn = get_sqlite_conn()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (identifier,)).fetchone()
     conn.close()
 
     if user and check_password_hash(user['password_hash'], password):
-        session['user_id'] = user['id']
+        session['email'] = user['email']
         session['role'] = user['role']
-        session['fullname'] = user['fullname']
+
+        db = get_mongo_db()
+        profile = db.patients.find_one({"email": user['email']})
+        session['fullname'] = decrypt_data(profile.get('fullname')) if profile else "User"
+
+        log_audit(session['email'], "LOGIN", f"Role: {user['role']}")
 
         if user['role'] == 'doctor': return redirect(url_for('doctor_dashboard'))
         if user['role'] == 'admin': return redirect(url_for('admin_dashboard'))
@@ -177,277 +186,275 @@ def register():
     password = request.form['password']
 
     if "@" not in email or len(password) < 6:
-        flash("Invalid email or password too short.")
+        flash("Invalid email.")
         return redirect(url_for('register_page'))
 
+    from werkzeug.security import generate_password_hash
     hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
-    conn = get_db()
+
+    conn = get_sqlite_conn()
     try:
-        conn.execute(
-            'INSERT INTO patients (fullname, email, nhs_number, password_hash, role, stroke_risk_score) VALUES (?,?,?,?,"patient",0)',
-            (fullname, email, nhs, hashed_pw))
+        conn.execute('INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
+                     (email, hashed_pw, 'patient'))
         conn.commit()
-        flash('Registered! Please login.')
-        return redirect(url_for('login_page'))
     except sqlite3.IntegrityError:
-        flash('Email taken.')
-        return redirect(url_for('register_page'))
-    finally:
         conn.close()
+        flash('Email registered.')
+        return redirect(url_for('register_page'))
+    conn.close()
+
+    db = get_mongo_db()
+    if not db.patients.find_one({"email": email}):
+        db.patients.insert_one({
+            "email": email,
+            "fullname": encrypt_data(fullname),  # Encrypt
+            "nhs_number": encrypt_data(nhs),  # Encrypt
+            "role": "patient",
+            "stroke_risk_score": 0
+        })
+
+    flash('Registered! Please login.')
+    return redirect(url_for('login_page'))
 
 
+# --- PATIENT DASHBOARD ---
 @app.route('/patient-dashboard')
 def dashboard():
     if session.get('role') != 'patient': return redirect(url_for('login_page'))
-    conn = get_db()
-    user = conn.execute('SELECT * FROM patients WHERE id = ?', (session['user_id'],)).fetchone()
-    doctors = conn.execute("SELECT id, fullname FROM patients WHERE role = 'doctor'").fetchall()
+    db = get_mongo_db()
+    user = db.patients.find_one({"email": session['email']})
 
-    try:
-        apps = conn.execute(
-            'SELECT a.*, d.fullname as doctor_name FROM appointments a LEFT JOIN patients d ON a.doctor_id = d.id WHERE a.patient_id = ?',
-            (session['user_id'],)).fetchall()
-    except:
-        apps = []
+    user['fullname'] = decrypt_data(user.get('fullname'))
+    user['nhs_number'] = decrypt_data(user.get('nhs_number'))
+
+    doctors = [{"id": str(d['_id']), "fullname": decrypt_data(d['fullname'])} for d in
+               db.patients.find({"role": "doctor"})]
+    appointments = list(db.appointments.find({"patient_email": session['email']}))
+    for apt in appointments: apt['doctor_name'] = decrypt_data(apt['doctor_name'])
 
     risk, advice = calculate_stroke_risk(user)
-    conn.close()
-    return render_template('dashboard.html', user=user, risk_score=risk, advice_list=advice, appointments=apps,
+    return render_template('dashboard.html', user=user, risk_score=risk, advice_list=advice, appointments=appointments,
                            doctors=doctors)
 
 
+# --- DOCTOR DASHBOARD ---
 @app.route('/doctor-dashboard')
 def doctor_dashboard():
     if session.get('role') != 'doctor': return redirect(url_for('login_page'))
-    conn = get_db()
-    pts = conn.execute("SELECT * FROM patients WHERE role = 'patient'").fetchall()
-    try:
-        pending = conn.execute(
-            "SELECT a.*, p.fullname as patient_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.doctor_id = ? AND a.status = 'Pending'",
-            (session['user_id'],)).fetchall()
-        confirmed = conn.execute(
-            "SELECT a.*, p.fullname as patient_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.doctor_id = ? AND a.status = 'Approved' ORDER BY a.appointment_date",
-            (session['user_id'],)).fetchall()
-    except:
-        pending, confirmed = [], []
-    conn.close()
-    return render_template('doctor_dashboard.html', patients=pts, pending_appointments=pending,
+    db = get_mongo_db()
+
+    # 1. Fetch Patients & Decrypt
+    patients = []
+    # Limit to first 50 for performance
+    for p in db.patients.find({"role": "patient"}):
+        p['fullname'] = decrypt_data(p.get('fullname'))
+        p['nhs_number'] = decrypt_data(p.get('nhs_number'))
+        p['gender'] = p.get('gender')  # Gender is NOT encrypted in setup script, just text
+        patients.append(p)
+
+    pending = list(db.appointments.find({"doctor_email": session['email'], "status": "Pending"}))
+    for a in pending: a['patient_name'] = decrypt_data(a.get('patient_name'))
+
+    confirmed = list(db.appointments.find({"doctor_email": session['email'], "status": "Approved"}))
+    for a in confirmed: a['patient_name'] = decrypt_data(a.get('patient_name'))
+
+    return render_template('doctor_dashboard.html', patients=patients, pending_appointments=pending,
                            confirmed_appointments=confirmed, doctor_name=session['fullname'])
 
 
-@app.route('/process_appointment/<int:id>/<action>')
-def process_appointment(id, action):
+# --- DOCTOR EDIT PATIENT ---
+@app.route('/edit_patient/<string:patient_id>')
+def edit_patient(patient_id):
     if session.get('role') != 'doctor': return redirect(url_for('login_page'))
-    if action not in ['approve', 'neglect']: return redirect(url_for('doctor_dashboard'))
 
+    db = get_mongo_db()
+    patient = db.patients.find_one({"_id": ObjectId(patient_id)})
+
+    if not patient:
+        flash("Patient not found.")
+        return redirect(url_for('doctor_dashboard'))
+
+    # Decrypt sensitive data
+    patient['fullname'] = decrypt_data(patient.get('fullname'))
+    patient['nhs_number'] = decrypt_data(patient.get('nhs_number'))
+
+    return render_template('edit_patient.html', patient=patient)
+
+
+# --- UPDATE PROFILE (Shared) ---
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if session.get('role') not in ['patient', 'doctor']:
+        return redirect(url_for('login_page'))
+
+    target_email = session['email'] if session['role'] == 'patient' else request.form.get('target_email')
+    redirect_url = 'dashboard' if session['role'] == 'patient' else 'doctor_dashboard'
+
+    if not target_email:
+        return redirect(url_for('home'))
+
+    try:
+        def safe_float(v):
+            return float(v) if v else 0.0
+
+        update_data = {
+            "nhs_number": encrypt_data(clean_input(request.form.get('nhs_number'))),
+            "age": int(safe_float(request.form.get('age'))),
+            "bmi": safe_float(request.form.get('bmi')),
+            "avg_glucose_level": safe_float(request.form.get('avg_glucose_level')),
+            "smoking_status": clean_input(request.form.get('smoking_status')),
+            "hypertension": 1 if 'hypertension' in request.form else 0,
+            "heart_disease": 1 if 'heart_disease' in request.form else 0,
+            "stroke_history": 1 if 'stroke_history' in request.form else 0
+        }
+
+        db = get_mongo_db()
+        db.patients.update_one({"email": target_email}, {"$set": update_data})
+
+        log_audit(session['email'], "UPDATE_RECORD", f"Updated record for {target_email}")
+        flash('Medical Record Updated.')
+        return redirect(url_for(redirect_url))
+
+    except ValueError:
+        flash("Invalid input format.")
+        return redirect(url_for(redirect_url))
+
+
+# --- BOOKING & ACTIONS ---
+@app.route('/book_appointment', methods=['POST'])
+def book_appointment():
+    if session.get('role') != 'patient': return redirect(url_for('login_page'))
+
+    db = get_mongo_db()
+    user = db.patients.find_one({"email": session['email']})
+    risk, _ = calculate_stroke_risk(user)
+
+    if risk <= 30:
+        flash('Booking Denied: Risk too low.')
+        return redirect(url_for('dashboard'))
+
+    doc_id = request.form.get('doctor_id')
+    doc = db.patients.find_one({"_id": ObjectId(doc_id)})
+
+    db.appointments.insert_one({
+        "patient_email": session['email'],
+        "patient_name": user['fullname'],  # Already Encrypted
+        "doctor_email": doc['email'],
+        "doctor_name": doc['fullname'],  # Already Encrypted
+        "appointment_date": clean_input(request.form['date']),
+        "reason": clean_input(request.form['reason']),
+        "status": "Pending"
+    })
+    flash('Appointment requested.')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/process_appointment/<string:apt_id>/<action>')
+def process_appointment(apt_id, action):
+    if session.get('role') != 'doctor': return redirect(url_for('login_page'))
     status = "Approved" if action == 'approve' else "Neglected"
-    conn = get_db()
-    conn.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, id))
-    conn.commit()
-    conn.close()
+    get_mongo_db().appointments.update_one({"_id": ObjectId(apt_id)}, {"$set": {"status": status}})
     flash(f'Appointment {status}.')
     return redirect(url_for('doctor_dashboard'))
 
 
-@app.route('/book_appointment', methods=['POST'])
-def book_appointment():
-    if 'user_id' not in session: return redirect(url_for('login_page'))
-
-    conn = get_db()
-    user = conn.execute('SELECT * FROM patients WHERE id = ?', (session['user_id'],)).fetchone()
-    risk, _ = calculate_stroke_risk(user)
-
-    # RISK CHECK: Prevent booking if low risk (Backend Validation)
-    if risk <= 30:
-        conn.close()
-        flash('Booking Denied: Risk too low (≤30%) for urgent appointments.')
-        return redirect(url_for('dashboard'))
-
-    reason = clean_input(request.form['reason'])
-    date = clean_input(request.form['date'])
-    doc_id = request.form.get('doctor_id')
-
-    if not doc_id:
-        conn.close()
-        flash("Please select a doctor.")
-        return redirect(url_for('dashboard'))
-
-    conn.execute(
-        'INSERT INTO appointments (patient_id, doctor_id, appointment_date, reason, status) VALUES (?,?,?,?,"Pending")',
-        (session['user_id'], doc_id, date, reason))
-    conn.commit()
-    conn.close()
-    flash('Urgent appointment requested successfully!')
-    return redirect(url_for('dashboard'))
-
-
-@app.route('/update_profile', methods=['POST'])
-def update_profile():
-    if 'user_id' not in session: return redirect(url_for('login_page'))
-
-    nhs = clean_input(request.form.get('nhs_number'))
-    smoking = clean_input(request.form.get('smoking_status'))
-    try:
-        age = int(request.form.get('age'))
-        glucose = float(request.form.get('avg_glucose_level'))
-        bmi = float(request.form.get('bmi'))
-    except (ValueError, TypeError):
-        flash("Invalid numeric input.")
-        return redirect(url_for('dashboard'))
-
-    hypertension = 1 if 'hypertension' in request.form else 0
-    heart = 1 if 'heart_disease' in request.form else 0
-
-    conn = get_db()
-    conn.execute(
-        'UPDATE patients SET nhs_number=?, age=?, smoking_status=?, avg_glucose_level=?, bmi=?, hypertension=?, heart_disease=? WHERE id=?',
-        (nhs, age, smoking, glucose, bmi, hypertension, heart, session['user_id']))
-    conn.commit()
-    conn.close()
-    flash('Profile updated!')
-    return redirect(url_for('dashboard'))
-
-
-# --- CREATIVE & INTERACTIVE PDF GENERATOR ---
+# --- PDF REPORT ---
 @app.route('/download_report')
 def download_report():
-    if 'user_id' not in session: return redirect(url_for('login_page'))
+    if session.get('role') != 'patient': return redirect(url_for('login_page'))
+    db = get_mongo_db()
+    user = db.patients.find_one({"email": session['email']})
 
-    conn = get_db()
-    user = conn.execute('SELECT * FROM patients WHERE id = ?', (session['user_id'],)).fetchone()
-    conn.close()
+    # Decrypt for PDF
+    fullname = decrypt_data(user.get('fullname'))
+    nhs_num = decrypt_data(user.get('nhs_number'))
+    gender = user.get('gender')  # Gender is plaintext in Mongo setup
 
     risk_score, medical_advice = calculate_stroke_risk(user)
 
-    # 1. Determine "Health Persona" & Habits
     habits = []
     if risk_score <= 20:
         persona = "The Health Guardian"
-        color = (39, 174, 96)  # Green
+        color = (39, 174, 96)
         status_msg = "Excellent! Maintain your current path."
-        habits = [
-            "Daily: 30-minute brisk walk",
-            "Diet: 5 portions of fruit/veg",
-            "Mental: 10 mins meditation"
-        ]
+        habits = ["Daily: 30-minute brisk walk", "Diet: 5 portions of fruit/veg", "Mental: 10 mins meditation"]
     elif risk_score <= 50:
         persona = "The Health Optimizer"
-        color = (243, 156, 18)  # Orange
+        color = (243, 156, 18)
         status_msg = "Caution: Improvements Needed."
-        habits = [
-            "Action: Reduce sodium (salt) intake",
-            "Exercise: 3 cardio sessions/week",
-            "Check: Monitor blood pressure weekly"
-        ]
+        habits = ["Action: Reduce sodium (salt)", "Exercise: 3 cardio sessions/week", "Check: Monitor blood pressure"]
     else:
         persona = "The Health Warrior"
-        color = (192, 57, 43)  # Red
-        status_msg = "High Alert: Immediate Action Required."
-        habits = [
-            "Urgent: Speak to a GP immediately",
-            "Strict: Zero smoking policy",
-            "Daily: Track and log blood pressure"
-        ]
+        color = (192, 57, 43)
+        status_msg = "High Alert: Action Required."
+        habits = ["Urgent: Speak to a GP", "Strict: Zero smoking", "Daily: Track blood pressure"]
 
-    # 2. Generate PDF
     pdf = FPDF()
     pdf.add_page()
+    logo_path = os.path.join(STATIC_DIR, 'image_1.png')
 
-    # --- HEADER ---
     pdf.set_font("Arial", 'B', 24)
-    pdf.set_text_color(0, 94, 184)  # NHS Blue
+    pdf.set_text_color(0, 94, 184)
     pdf.cell(0, 10, "LTU Health Analytics", ln=1, align='C')
-
-    # Date Centered
     pdf.set_font("Arial", '', 12)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 10, f"Report Date: {datetime.date.today()}", ln=1, align='C')
     pdf.ln(10)
 
-    # --- PATIENT INFO CARD (CENTERED) ---
     pdf.set_fill_color(245, 245, 245)
-    # Centered box: (210 - 150) / 2 = 30
     pdf.rect(30, 40, 150, 25, 'F')
-
     pdf.set_y(45)
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 8, f"Patient: {user['fullname']}", ln=1, align='C')
+    pdf.cell(0, 8, f"Patient: {fullname}", ln=1, align='C')
     pdf.set_font("Arial", '', 13)
-    pdf.cell(0, 8, f"NHS Number: {user['nhs_number'] or 'N/A'}", ln=1, align='C')
+    pdf.cell(0, 8, f"Gender: {gender} | Age: {int(user.get('age', 0))}", ln=1, align='C')
 
-    # --- RISK VISUALIZATION ---
     pdf.ln(25)
     pdf.set_font("Arial", 'B', 18)
     pdf.cell(0, 10, "Stroke Risk Analysis", ln=1, align='C')
 
-    # Calculate Center Position for Bar (Width 120mm)
-    # Start X = (210 - 120) / 2 = 45
-    bar_x = 45
-    bar_y = pdf.get_y() + 5
+    bar_x = 45;
+    bar_y = pdf.get_y() + 5;
     bar_width = 120
-
-    # Background Bar
     pdf.set_fill_color(220, 220, 220)
     pdf.rect(bar_x, bar_y, bar_width, 10, 'F')
-
-    # Active Risk Portion
     pdf.set_fill_color(*color)
     fill_width = (bar_width * risk_score) / 100
-    if fill_width > 0:
-        pdf.rect(bar_x, bar_y, fill_width, 10, 'F')
+    if fill_width > 0: pdf.rect(bar_x, bar_y, fill_width, 10, 'F')
 
     pdf.set_y(bar_y + 15)
-
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(*color)
     pdf.cell(0, 10, f"Your Risk Score: {risk_score}%", ln=1, align='C')
-
     pdf.set_font("Arial", 'I', 14)
     pdf.set_text_color(50, 50, 50)
     pdf.cell(0, 10, f"Health Persona: {persona}", ln=1, align='C')
     pdf.cell(0, 10, f"Status: {status_msg}", ln=1, align='C')
 
-    # --- ACTION PLAN ---
     pdf.ln(10)
     pdf.set_text_color(0, 94, 184)
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(0, 10, "Your Personalized Action Plan", ln=1, align='C')
-
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", '', 14)
-
     bullet = chr(149)
-    for habit in habits:
-        pdf.cell(0, 10, f"{bullet}  {habit}", ln=1, align='C')
-
+    for habit in habits: pdf.cell(0, 10, f"{bullet}  {habit}", ln=1, align='C')
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 14)
     pdf.cell(0, 10, "Medical Advice:", ln=1, align='C')
     pdf.set_font("Arial", '', 13)
-    for advice in medical_advice:
-        pdf.cell(0, 9, f"{bullet} {advice}", ln=1, align='C')
+    for advice in medical_advice: pdf.cell(0, 9, f"{bullet} {advice}", ln=1, align='C')
 
-    # --- INTERACTIVE ELEMENT ---
     pdf.ln(15)
     pdf.set_text_color(0, 0, 255)
     pdf.set_font("Arial", 'U', 14)
-    link_url = "https://www.nhs.uk/conditions/stroke/"
-    pdf.cell(0, 10, "Click here to visit the official NHS Stroke Guide", ln=1, align='C', link=link_url)
+    pdf.cell(0, 10, "Click here to visit the official NHS Stroke Guide", ln=1, align='C',
+             link="https://www.nhs.uk/conditions/stroke/")
 
-    # --- LOGO AT BOTTOM (Smart Positioning) ---
-    logo_path = os.path.join(STATIC_DIR, 'image_1.png')
     if os.path.exists(logo_path):
-        # Calculate Y: Ensure it is at least at 260mm, or well below current text
-        current_y = pdf.get_y()
-        target_y = max(260, current_y + 15)
-
-        # If running off page, new page
-        if target_y > 280:
-            pdf.add_page()
-            target_y = 20
-
-        # X=85 centers a 40mm image on A4
+        target_y = max(250, pdf.get_y() + 15)
+        if target_y > 270: pdf.add_page(); target_y = 20
         pdf.image(logo_path, x=85, y=target_y, w=40)
 
     response = make_response(pdf.output(dest='S').encode('latin1'))
@@ -456,10 +463,77 @@ def download_report():
     return response
 
 
+# --- ADMIN ---
 @app.route('/admin-dashboard')
 def admin_dashboard():
     if session.get('role') != 'admin': return redirect(url_for('login_page'))
-    return render_template('admin_dashboard.html')
+
+    db = get_mongo_db()
+    # Stats
+    patient_count = db.patients.count_documents({"role": "patient"})
+    doctor_count = db.patients.count_documents({"role": "doctor"})
+
+    # Decrypt names for lists
+    doctors = list(db.patients.find({"role": "doctor"}))
+    for d in doctors: d['fullname'] = decrypt_data(d.get('fullname'))
+
+    patients = list(db.patients.find({"role": "patient"}))
+    for p in patients: p['fullname'] = decrypt_data(p.get('fullname'))
+
+    # Logs
+    logs = list(db.audit_logs.find().sort("timestamp", -1).limit(20))
+
+    return render_template('admin_dashboard.html',
+                           patient_count=patient_count,
+                           doctor_count=doctor_count,
+                           doctors=doctors,
+                           patients=patients,
+                           logs=logs)
+
+
+# --- ADMIN ACTIONS ---
+@app.route('/admin/add_doctor', methods=['POST'])
+def add_doctor():
+    if session.get('role') != 'admin': return redirect(url_for('login_page'))
+
+    fullname = clean_input(request.form.get('fullname'))
+    email = clean_input(request.form.get('email'))
+    password = request.form.get('password')
+
+    from werkzeug.security import generate_password_hash
+    hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
+
+    conn = get_sqlite_conn()
+    try:
+        conn.execute('INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)', (email, hashed_pw, 'doctor'))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close();
+        flash('Email exists.');
+        return redirect(url_for('admin_dashboard'))
+    conn.close()
+
+    db = get_mongo_db()
+    db.patients.insert_one({"email": email, "fullname": encrypt_data(fullname), "role": "doctor"})
+    flash('Doctor Added.')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/delete_user/<string:user_id>')
+def delete_user(user_id):
+    if session.get('role') != 'admin': return redirect(url_for('login_page'))
+
+    db = get_mongo_db()
+    user = db.patients.find_one({"_id": ObjectId(user_id)})
+    if user:
+        email = user['email']
+        conn = get_sqlite_conn()
+        conn.execute("DELETE FROM users WHERE email = ?", (email,))
+        conn.commit()
+        conn.close()
+        db.patients.delete_one({"_id": ObjectId(user_id)})
+        flash('Deleted.')
+    return redirect(url_for('admin_dashboard'))
 
 
 if __name__ == '__main__':
