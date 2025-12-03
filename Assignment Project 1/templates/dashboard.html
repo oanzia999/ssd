@@ -4,18 +4,49 @@
     <meta charset="UTF-8">
     <title>My Health Dashboard</title>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; min-height: 100vh;
-            /* UPDATED: Background Image changed to dashboardbackground.png */
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh;
             background-image: url("{{ url_for('static', filename='dashboardbackground.png') }}"); 
-            background-size: cover; background-attachment: fixed; }
-        /* UPDATED: Header background made transparent */
-        .header-wrapper { background-color: transparent; padding-bottom: 10px; }
+            background-size: cover; 
+            background-attachment: fixed; 
+        }
+            
+        /* Header background white (from previous request) */
+        .header-wrapper { 
+            background-color: #ffffff;
+            padding-bottom: 10px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08); 
+        }
+        
         .welcome-container { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px 5px 42px; }
         .welcome-container h1 { margin: 0; font-size: 24px; color: #2c3e50; }
         .auth-buttons a { text-decoration: none; padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 14px; background: white; border: 1px solid #ccc; color: #333; }
+        
+        /* Main Nav styling (from previous request to match Home) */
         .main-nav { padding: 5px 30px 10px 32px; display: flex; align-items: center; }
-        .main-nav a { text-decoration: none; color: #333; font-size: 16px; font-weight: 500; padding: 5px 12px; }
-        .separator { color: #8fa3ad; margin: 0 5px; }
+        
+        .main-nav a { 
+            text-decoration: none; 
+            color: #333; 
+            font-size: 16px; 
+            font-weight: 500; 
+            padding: 5px 12px; 
+            border-radius: 4px;
+            transition: all 0.2s ease; 
+        }
+        
+        /* Hover effect (from previous request to match Home) */
+        .main-nav a:hover {
+            color: #005eb8;       
+            background-color: #ffffff; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
+
+        .separator { color: #8fa3ad; margin: 0 5px; user-select: none; cursor: default; }
 
         .dashboard-wrapper { flex: 1; padding: 40px; display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; }
         .card { background: rgba(255,255,255,0.95); padding: 30px; border-radius: 15px; flex: 1; min-width: 300px; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
@@ -38,9 +69,9 @@
     </style>
 </head>
 <body>
-    <header class="header-wrapper" style="background-color: #fefefe;">
+    <header class="header-wrapper">
         <div class="welcome-container">
-            <h1>LTU Health Dashboard</h1>
+            <h1>Welcome {{ user['fullname'] }}</h1>
             <div class="auth-buttons"><a href="{{ url_for('logout') }}">Logout</a></div>
         </div>
         <nav class="main-nav">
@@ -52,7 +83,6 @@
     </header>
 
     <div class="dashboard-wrapper">
-        <!-- RISK CARD -->
         <div class="card">
             <h2 style="color: #005eb8; text-align: center;">Stroke Risk Assessment</h2>
             
@@ -81,7 +111,6 @@
             {% endif %}
         </div>
 
-        <!-- PROFILE CARD -->
         <div class="card">
             <h2 style="color: #333;">My Medical Profile</h2>
             <form action="{{ url_for('update_profile') }}" method="POST">
