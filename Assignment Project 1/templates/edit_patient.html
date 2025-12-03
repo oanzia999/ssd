@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Patient Record</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 40px; }
+        .card { 
+            background: white; padding: 30px; max-width: 600px; margin: 0 auto; 
+            border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        }
+        h2 { color: #005eb8; margin-top: 0; text-align: center; }
+        .form-control { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        .btn-update { 
+            width: 100%; padding: 12px; background-color: #28a745; color: white; 
+            border: none; border-radius: 5px; font-size: 16px; cursor: pointer; 
+        }
+        .btn-back { display: block; text-align: center; margin-top: 15px; color: #666; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Edit Patient Record</h2>
+        <p style="text-align: center; color: #666;">Patient: <strong>{{ patient['fullname'] }}</strong></p>
+
+        <form action="{{ url_for('update_profile') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <input type="hidden" name="target_email" value="{{ patient['email'] }}">
+
+            <label>NHS Number:</label>
+            <input type="text" name="nhs_number" value="{{ patient['nhs_number'] }}" class="form-control">
+            
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>Age:</label>
+                    <input type="number" name="age" value="{{ patient['age']|int }}" class="form-control">
+                </div>
+                <div style="flex: 1;">
+                    <label>BMI:</label>
+                    <input type="number" step="0.1" name="bmi" value="{{ patient['bmi'] }}" class="form-control">
+                </div>
+            </div>
+
+            <label>Avg Glucose Level:</label>
+            <input type="number" step="0.1" name="avg_glucose_level" value="{{ patient['avg_glucose_level'] }}" class="form-control">
+            
+            <label>Smoking Status:</label>
+            <select name="smoking_status" class="form-control">
+                <option value="never smoked" {% if patient['smoking_status'] == 'never smoked' %}selected{% endif %}>Never Smoked</option>
+                <option value="formerly smoked" {% if patient['smoking_status'] == 'formerly smoked' %}selected{% endif %}>Formerly Smoked</option>
+                <option value="smokes" {% if patient['smoking_status'] == 'smokes' %}selected{% endif %}>Current Smoker</option>
+            </select>
+
+            <div style="margin: 15px 0;">
+                <label>
+                    <input type="checkbox" name="hypertension" value="1" {% if patient['hypertension'] == 1 %}checked{% endif %}> 
+                    Hypertension (High BP)
+                </label>
+                <label>
+                    <input type="checkbox" name="heart_disease" value="1" {% if patient['heart_disease'] == 1 %}checked{% endif %}> 
+                    Heart Disease History
+                </label>
+                <label>
+                    <input type="checkbox" name="stroke_history" value="1" {% if patient['stroke_history'] == 1 %}checked{% endif %}> 
+                    Previous Stroke History
+                </label>
+            </div>
+            
+            <button type="submit" class="btn-update">Save Changes</button>
+        </form>
+
+        <a href="{{ url_for('doctor_dashboard') }}" class="btn-back">Cancel & Return</a>
+    </div>
+
+</body>
+</html>
