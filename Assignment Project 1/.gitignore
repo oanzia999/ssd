@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+
+# Database (Do not upload real data!)
+*.db
+*.sqlite
+auth.db
+ltu_health_records
+
+# Security Keys (NEVER upload these)
+secret.key
+
+# AI Models & Large Files
+*.pkl
+
+# IDE Settings
+.vscode/
+.idea/
