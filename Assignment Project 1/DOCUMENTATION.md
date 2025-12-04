@@ -110,3 +110,5 @@ Although the application renders server-side HTML, the internal routing acts as 
 | **Broken Access Control** | Role checks (`session['role']`) | All Routes |
 | **CSRF** | Flask-WTF Tokens | HTML Forms |
 | **Brute Force** | IP-based Rate Limiting | `app.py` (Line 20) |
+| **GDPR Compliance** | Explicit Consent Checkbox | `register.html` |
+| **Transparency** | Privacy Policy Page | `privacy.html` |
