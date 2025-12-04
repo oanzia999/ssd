@@ -23,48 +23,49 @@
 
     <div class="card">
         <h2>Edit Patient Record</h2>
-        <p style="text-align: center; color: #666;">Patient: <strong>{{ patient['fullname'] }}</strong></p>
+        <p style="text-align: center; color: #666;">Patient: <strong>{{ patient.get('fullname', 'Unknown') }}</strong></p>
 
         <form action="{{ url_for('update_profile') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
-            <input type="hidden" name="target_email" value="{{ patient['email'] }}">
+            <input type="hidden" name="target_email" value="{{ patient.get('email') }}">
 
             <label>NHS Number:</label>
-            <input type="text" name="nhs_number" value="{{ patient['nhs_number'] }}" class="form-control">
+            <input type="text" name="nhs_number" value="{{ patient.get('nhs_number', '') }}" class="form-control">
             
             <div style="display: flex; gap: 10px;">
                 <div style="flex: 1;">
                     <label>Age:</label>
-                    <input type="number" name="age" value="{{ patient['age']|int }}" class="form-control">
+                    <input type="number" name="age" value="{{ patient.get('age', 0)|int }}" class="form-control">
                 </div>
                 <div style="flex: 1;">
                     <label>BMI:</label>
-                    <input type="number" step="0.1" name="bmi" value="{{ patient['bmi'] }}" class="form-control">
+                    <input type="number" step="0.1" name="bmi" value="{{ patient.get('bmi', 0) }}" class="form-control">
                 </div>
             </div>
 
             <label>Avg Glucose Level:</label>
-            <input type="number" step="0.1" name="avg_glucose_level" value="{{ patient['avg_glucose_level'] }}" class="form-control">
+            <input type="number" step="0.1" name="avg_glucose_level" value="{{ patient.get('avg_glucose_level', 0) }}" class="form-control">
             
             <label>Smoking Status:</label>
             <select name="smoking_status" class="form-control">
-                <option value="never smoked" {% if patient['smoking_status'] == 'never smoked' %}selected{% endif %}>Never Smoked</option>
-                <option value="formerly smoked" {% if patient['smoking_status'] == 'formerly smoked' %}selected{% endif %}>Formerly Smoked</option>
-                <option value="smokes" {% if patient['smoking_status'] == 'smokes' %}selected{% endif %}>Current Smoker</option>
+                <option value="never smoked" {% if patient.get('smoking_status') == 'never smoked' %}selected{% endif %}>Never Smoked</option>
+                <option value="formerly smoked" {% if patient.get('smoking_status') == 'formerly smoked' %}selected{% endif %}>Formerly Smoked</option>
+                <option value="smokes" {% if patient.get('smoking_status') == 'smokes' %}selected{% endif %}>Current Smoker</option>
+                <option value="Unknown" {% if patient.get('smoking_status') == 'Unknown' %}selected{% endif %}>Unknown</option>
             </select>
 
             <div style="margin: 15px 0;">
                 <label>
-                    <input type="checkbox" name="hypertension" value="1" {% if patient['hypertension'] == 1 %}checked{% endif %}> 
+                    <input type="checkbox" name="hypertension" value="1" {% if patient.get('hypertension') == 1 %}checked{% endif %}> 
                     Hypertension (High BP)
                 </label>
                 <label>
-                    <input type="checkbox" name="heart_disease" value="1" {% if patient['heart_disease'] == 1 %}checked{% endif %}> 
+                    <input type="checkbox" name="heart_disease" value="1" {% if patient.get('heart_disease') == 1 %}checked{% endif %}> 
                     Heart Disease History
                 </label>
                 <label>
-                    <input type="checkbox" name="stroke_history" value="1" {% if patient['stroke_history'] == 1 %}checked{% endif %}> 
+                    <input type="checkbox" name="stroke_history" value="1" {% if patient.get('stroke_history') == 1 %}checked{% endif %}> 
                     Previous Stroke History
                 </label>
             </div>

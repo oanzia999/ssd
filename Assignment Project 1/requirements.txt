@@ -1,0 +1,10 @@
+Flask
+pymongo
+fpdf
+Flask-WTF
+Flask-Limiter
+cryptography
+bleach
+pandas
+openpyxl
+email_validator

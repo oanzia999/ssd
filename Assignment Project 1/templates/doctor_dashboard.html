@@ -63,9 +63,16 @@
 
         .dashboard-header {
             border-bottom: 2px solid #005eb8; padding-bottom: 10px; margin-bottom: 20px;
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
         }
         .dashboard-header h2 { margin: 0; color: #005eb8; }
+
+        /* SEARCH BAR STYLES */
+        .search-form { display: flex; gap: 10px; align-items: center; }
+        .search-input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
+        .sort-select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-search { background-color: #005eb8; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        .btn-search:hover { background-color: #003087; }
 
         /* SCROLLABLE TABLE */
         .table-scroll-wrapper {
@@ -168,6 +175,16 @@
         <div class="dashboard-card full-width">
             <div class="dashboard-header">
                 <h2>Manage Patients</h2>
+                
+                <form class="search-form" method="GET" action="{{ url_for('doctor_dashboard') }}">
+                    <input type="text" name="q" class="search-input" placeholder="Search by name..." value="{{ request.args.get('q', '') }}">
+                    <select name="sort" class="sort-select" onchange="this.form.submit()">
+                        <option value="name" {% if request.args.get('sort') == 'name' %}selected{% endif %}>Sort by Name</option>
+                        <option value="risk" {% if request.args.get('sort') == 'risk' %}selected{% endif %}>Sort by Risk (High->Low)</option>
+                        <option value="age" {% if request.args.get('sort') == 'age' %}selected{% endif %}>Sort by Age (Old->Young)</option>
+                    </select>
+                    <button type="submit" class="btn-search">Filter</button>
+                </form>
             </div>
 
             {% if patients %}
@@ -188,14 +205,12 @@
                         <tr>
                             <td>{{ loop.index }}</td>
                             <td>{{ patient['fullname'] }}</td> 
-                            <td>{{ patient['age']|int }}</td>
-                            <td>{{ patient['gender'] }}</td>
+                            <td>{{ patient.get('age', 0)|int }}</td>
+                            <td>{{ patient.get('gender', 'Unknown') }}</td>
                             <td>
-                                {% if patient.get('hypertension') == 1 or patient.get('heart_disease') == 1 or patient.get('stroke_history') == 1 %}
-                                    <span style="color: #c0392b; font-weight: bold;">High Risk</span>
-                                {% else %}
-                                    <span style="color: #27ae60;">Normal</span>
-                                {% endif %}
+                                <span style="font-weight: bold; color: {% if patient['risk_score'] > 30 %}#c0392b{% else %}#27ae60{% endif %};">
+                                    {{ patient['risk_score'] }}%
+                                </span>
                             </td>
                             <td>
                                 <a href="{{ url_for('edit_patient', patient_id=patient['_id']) }}" class="action-btn btn-edit">Edit</a>
@@ -206,7 +221,7 @@
                 </table>
             </div>
             {% else %}
-                <p style="text-align: center; color: #666; padding: 20px;">No patients found in the database.</p>
+                <p style="text-align: center; color: #666; padding: 20px;">No patients found matching your search.</p>
             {% endif %}
         </div>
 

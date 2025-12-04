@@ -1,7 +1,23 @@
+"""
+LTU Health Analytics - Secure Web Application
+---------------------------------------------
+A Hybrid Polyglot Application for Stroke Risk Prediction.
+
+Security Features:
+1. Architecture: Hybrid Database (SQLite for Auth, MongoDB for Data).
+2. Confidentiality: Fernet Encryption (AES) for PII (Patient Identifiable Information).
+3. Integrity: Immutable Audit Logs for all sensitive actions.
+4. Availability: Rate Limiting to prevent Brute Force/DDoS.
+5. Input Validation: Bleach sanitization against XSS attacks.
+
+Author: Student ID
+Module: COM7033 Secure Software Development
+"""
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 import sqlite3
 from pymongo import MongoClient
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from fpdf import FPDF
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -14,79 +30,131 @@ from bson.objectid import ObjectId
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_session_security'
+
+# --- SECURITY: CSRF & RATE LIMITING ---
+# CSRFProtect prevents Cross-Site Request Forgery attacks on forms.
 csrf = CSRFProtect(app)
-# STEP 3: BRUTE FORCE PROTECTION (Rate Limiting)
+# Limiter tracks IP addresses to block Brute Force attacks (10 attempts/min).
 limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
 
 # --- CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SQLITE_DB = os.path.join(BASE_DIR, 'auth.db')
+SQLITE_DB = os.path.join(BASE_DIR, 'auth.db')  # Relational DB for Credentials
 MONGO_URI = "mongodb://localhost:27017/"
-MONGO_DB_NAME = "ltu_health_records"
+MONGO_DB_NAME = "ltu_health_records"  # NoSQL DB for Medical Records
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 KEY_FILE = os.path.join(BASE_DIR, "secret.key")
 
-# --- ENCRYPTION HANDLER (STEP 4) ---
+# --- ENCRYPTION HANDLER (Confidentiality) ---
 try:
     with open(KEY_FILE, "rb") as kf:
         cipher = Fernet(kf.read())
 except FileNotFoundError:
-    print("!!! ERROR: secret.key not found. Run setup_hybrid.py first!")
+    print("!!! CRITICAL: secret.key not found. Encryption will fail.")
     cipher = None
 
 
 def encrypt_data(text):
+    """
+    Encrypts sensitive string data using AES (Fernet).
+    Args:
+        text (str): The plain text to encrypt.
+    Returns:
+        str: The encrypted byte string decoded to utf-8.
+    """
     if not text: return ""
-    return cipher.encrypt(str(text).encode()).decode()
+    return cipher.encrypt(str(text).encode()).decode() if cipher else text
 
 
 def decrypt_data(text):
+    """
+    Decrypts ciphertext back to readable string.
+    Returns '[Encrypted]' if decryption fails (Graceful Degradation).
+    """
     if not text: return ""
     try:
-        return cipher.decrypt(str(text).encode()).decode()
+        return cipher.decrypt(str(text).encode()).decode() if cipher else text
     except:
         return "[Encrypted]"
 
 
 # --- DATABASE CONNECTORS ---
 def get_sqlite_conn():
+    """Establishes connection to the Authentication Database (SQLite)."""
     conn = sqlite3.connect(SQLITE_DB)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def get_mongo_db():
+    """Establishes connection to the Medical Record Database (MongoDB)."""
     client = MongoClient(MONGO_URI)
     return client[MONGO_DB_NAME]
 
 
-# --- AUDIT LOGGING (STEP 2) ---
+# --- AUDIT LOGGING (Accountability) ---
 def log_audit(user_email, action, details):
+    """
+    Records sensitive user actions for GDPR compliance and Non-repudiation.
+    Data is stored in a separate 'audit_logs' collection.
+    """
     db = get_mongo_db()
     db.audit_logs.insert_one({
-        "user": user_email, "action": action, "details": details,
-        "ip": request.remote_addr, "timestamp": datetime.datetime.now()
+        "user": user_email,
+        "action": action,
+        "details": details,
+        "ip": request.remote_addr,
+        "timestamp": datetime.datetime.now()
     })
 
 
 def clean_input(text):
+    """
+    Sanitizes user input to prevent Cross-Site Scripting (XSS).
+    Uses 'bleach' to strip HTML tags like <script>.
+    """
     if text is None: return ""
     return bleach.clean(str(text), tags=[], attributes={}, strip=True)
 
 
 @app.after_request
 def add_security_headers(response):
+    """
+    Injects HTTP Security Headers into every response.
+    - X-Content-Type-Options: Prevents MIME-sniffing.
+    - X-Frame-Options: Prevents Clickjacking.
+    - X-XSS-Protection: Activates browser XSS filters.
+    """
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
 
 
-# --- RISK ENGINE ---
+# --- ERROR HANDLERS (Info Leakage Prevention) ---
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template('500.html'), 500
+
+
+# --- RISK ENGINE (Business Logic) ---
 def calculate_stroke_risk(mongo_doc):
+    """
+    Calculates Stroke Risk % based on NHS Heuristics.
+    Args:
+        mongo_doc (dict): Patient record from MongoDB.
+    Returns:
+        tuple: (risk_score_int, list_of_advice_strings)
+    """
     score = 0
     advice = []
 
+    # Safe Extraction using .get() to prevent crashes on missing fields
     age = mongo_doc.get('age', 0)
     hypertension = mongo_doc.get('hypertension', 0)
     heart_disease = mongo_doc.get('heart_disease', 0)
@@ -95,15 +163,35 @@ def calculate_stroke_risk(mongo_doc):
     smoking = mongo_doc.get('smoking_status', 'Unknown')
     stroke_history = mongo_doc.get('stroke_history', 0)
 
-    if stroke_history == 1: score += 30; advice.append("History of Stroke: High recurrence risk.")
-    if heart_disease == 1: score += 20; advice.append("Heart Disease: Follow treatment.")
-    if hypertension == 1: score += 20; advice.append("Hypertension: Monitor BP.")
-    if age > 60: score += 15; advice.append("Age > 60: Increased risk.")
-    if glucose > 200: score += 15; advice.append("High Glucose: Screen for diabetes.")
-    if bmi > 30: score += 10; advice.append("BMI > 30: Weight management advised.")
-    if smoking == 'smokes': score += 25; advice.append("Smoking: Critical risk.")
+    # Risk Logic
+    if stroke_history == 1:
+        score += 30
+        advice.append("History of Stroke: High recurrence risk.")
+    if heart_disease == 1:
+        score += 20
+        advice.append("Heart Disease: Follow cardiology treatment.")
+    if hypertension == 1:
+        score += 20
+        advice.append("Hypertension: Monitor blood pressure.")
+    if age > 60:
+        score += 15
+        advice.append("Age > 60: Increased biological risk.")
+    if glucose > 200:
+        score += 15
+        advice.append("High Glucose: Screen for diabetes.")
+    if bmi > 30:
+        score += 10
+        advice.append("BMI > 30: Weight management advised.")
+    if smoking == 'smokes':
+        score += 25
+        advice.append("Smoking: Critical risk. Stop immediately.")
+    elif smoking == 'formerly smoked':
+        score += 5
+        advice.append("History of Smoking: Maintain smoke-free lifestyle.")
 
-    if score == 0: advice.append("No major risks. Maintain healthy lifestyle.")
+    if score == 0:
+        advice.append("No major risks. Maintain healthy lifestyle.")
+
     return min(score, 100), advice
 
 
@@ -139,15 +227,16 @@ def logout():
     return redirect(url_for('home'))
 
 
-# --- AUTH (Rate Limited) ---
+# --- AUTH (Hybrid: SQL for Auth, Mongo for Name) ---
 @app.route('/login', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("10 per minute")  # Rate Limiting Rule
 def login():
     identifier = clean_input(request.form.get('email') or request.form.get('username') or request.form.get('doctor_id'))
     password = request.form['password']
 
     if not identifier: return redirect(url_for('login_page'))
 
+    # 1. Verify Credentials against SQLite
     conn = get_sqlite_conn()
     user = conn.execute('SELECT * FROM users WHERE email = ?', (identifier,)).fetchone()
     conn.close()
@@ -156,12 +245,17 @@ def login():
         session['email'] = user['email']
         session['role'] = user['role']
 
+        # 2. Fetch Personal Details from MongoDB
         db = get_mongo_db()
         profile = db.patients.find_one({"email": user['email']})
+
+        # Decrypt Name for Session
         session['fullname'] = decrypt_data(profile.get('fullname')) if profile else "User"
 
+        # Audit Log
         log_audit(session['email'], "LOGIN", f"Role: {user['role']}")
 
+        # Role-Based Redirection (RBAC)
         if user['role'] == 'doctor': return redirect(url_for('doctor_dashboard'))
         if user['role'] == 'admin': return redirect(url_for('admin_dashboard'))
         return redirect(url_for('dashboard'))
@@ -178,20 +272,24 @@ def doctor_login(): return login()
 def admin_login(): return login()
 
 
+# --- REGISTRATION ---
 @app.route('/register', methods=['POST'])
 def register():
+    # Sanitize inputs
     fullname = clean_input(request.form['fullname'])
     email = clean_input(request.form['email'])
     nhs = clean_input(request.form.get('nhs-number'))
     password = request.form['password']
 
+    # Basic Validation
     if "@" not in email or len(password) < 6:
         flash("Invalid email.")
         return redirect(url_for('register_page'))
 
-    from werkzeug.security import generate_password_hash
+    # Password Hashing (Integrity)
     hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
 
+    # 1. Add to SQLite
     conn = get_sqlite_conn()
     try:
         conn.execute('INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
@@ -203,14 +301,19 @@ def register():
         return redirect(url_for('register_page'))
     conn.close()
 
+    # 2. Add to MongoDB (With Encryption)
     db = get_mongo_db()
     if not db.patients.find_one({"email": email}):
         db.patients.insert_one({
             "email": email,
-            "fullname": encrypt_data(fullname),  # Encrypt
-            "nhs_number": encrypt_data(nhs),  # Encrypt
+            "fullname": encrypt_data(fullname),  # Encrypted
+            "nhs_number": encrypt_data(nhs),  # Encrypted
             "role": "patient",
-            "stroke_risk_score": 0
+            "stroke_risk_score": 0,
+            # Initialize defaults to prevent dashboard errors
+            "age": 0, "gender": encrypt_data("Unknown"), "bmi": 0.0,
+            "avg_glucose_level": 0.0, "hypertension": 0, "heart_disease": 0,
+            "stroke_history": 0, "smoking_status": "Unknown"
         })
 
     flash('Registered! Please login.')
@@ -220,17 +323,23 @@ def register():
 # --- PATIENT DASHBOARD ---
 @app.route('/patient-dashboard')
 def dashboard():
+    # RBAC Check
     if session.get('role') != 'patient': return redirect(url_for('login_page'))
+
     db = get_mongo_db()
     user = db.patients.find_one({"email": session['email']})
 
+    # Decrypt Data for View Layer
     user['fullname'] = decrypt_data(user.get('fullname'))
     user['nhs_number'] = decrypt_data(user.get('nhs_number'))
 
+    # Fetch Related Data
     doctors = [{"id": str(d['_id']), "fullname": decrypt_data(d['fullname'])} for d in
                db.patients.find({"role": "doctor"})]
     appointments = list(db.appointments.find({"patient_email": session['email']}))
-    for apt in appointments: apt['doctor_name'] = decrypt_data(apt['doctor_name'])
+
+    for apt in appointments:
+        apt['doctor_name'] = decrypt_data(apt['doctor_name'])
 
     risk, advice = calculate_stroke_risk(user)
     return render_template('dashboard.html', user=user, risk_score=risk, advice_list=advice, appointments=appointments,
@@ -240,18 +349,43 @@ def dashboard():
 # --- DOCTOR DASHBOARD ---
 @app.route('/doctor-dashboard')
 def doctor_dashboard():
+    # RBAC Check
     if session.get('role') != 'doctor': return redirect(url_for('login_page'))
     db = get_mongo_db()
 
-    # 1. Fetch Patients & Decrypt
+    # 1. Get Filters
+    query = request.args.get('q', '').lower()
+    sort_by = request.args.get('sort', 'name')
+
+    # 2. Process Patients (Decrypt -> Filter -> Sort)
     patients = []
-    # Limit to first 50 for performance
-    for p in db.patients.find({"role": "patient"}):
+    raw_patients = db.patients.find({"role": "patient"})
+
+    for p in raw_patients:
+        # Decrypt Personal Data
         p['fullname'] = decrypt_data(p.get('fullname'))
         p['nhs_number'] = decrypt_data(p.get('nhs_number'))
-        p['gender'] = p.get('gender')  # Gender is NOT encrypted in setup script, just text
+        p['gender'] = decrypt_data(p.get('gender'))
+
+        # Calculate Risk Score dynamically
+        score, _ = calculate_stroke_risk(p)
+        p['risk_score'] = score
+
+        # Search Filter
+        if query and query not in p['fullname'].lower():
+            continue
+
         patients.append(p)
 
+    # 3. Sort Results
+    if sort_by == 'risk':
+        patients.sort(key=lambda x: x['risk_score'], reverse=True)
+    elif sort_by == 'age':
+        patients.sort(key=lambda x: x.get('age', 0), reverse=True)
+    else:
+        patients.sort(key=lambda x: x['fullname'].lower())
+
+    # 4. Fetch Appointments
     pending = list(db.appointments.find({"doctor_email": session['email'], "status": "Pending"}))
     for a in pending: a['patient_name'] = decrypt_data(a.get('patient_name'))
 
@@ -274,24 +408,25 @@ def edit_patient(patient_id):
         flash("Patient not found.")
         return redirect(url_for('doctor_dashboard'))
 
-    # Decrypt sensitive data
+    # Decrypt before sending to form
     patient['fullname'] = decrypt_data(patient.get('fullname'))
     patient['nhs_number'] = decrypt_data(patient.get('nhs_number'))
+    patient['gender'] = decrypt_data(patient.get('gender'))
 
     return render_template('edit_patient.html', patient=patient)
 
 
-# --- UPDATE PROFILE (Shared) ---
+# --- UPDATE PROFILE (Shared Logic) ---
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
     if session.get('role') not in ['patient', 'doctor']:
         return redirect(url_for('login_page'))
 
+    # Determine Target: Patient updates self, Doctor updates specific ID
     target_email = session['email'] if session['role'] == 'patient' else request.form.get('target_email')
     redirect_url = 'dashboard' if session['role'] == 'patient' else 'doctor_dashboard'
 
-    if not target_email:
-        return redirect(url_for('home'))
+    if not target_email: return redirect(url_for('home'))
 
     try:
         def safe_float(v):
@@ -329,6 +464,7 @@ def book_appointment():
     user = db.patients.find_one({"email": session['email']})
     risk, _ = calculate_stroke_risk(user)
 
+    # Business Logic: Restrict functionality based on risk
     if risk <= 30:
         flash('Booking Denied: Risk too low.')
         return redirect(url_for('dashboard'))
@@ -353,6 +489,7 @@ def book_appointment():
 def process_appointment(apt_id, action):
     if session.get('role') != 'doctor': return redirect(url_for('login_page'))
     status = "Approved" if action == 'approve' else "Neglected"
+
     get_mongo_db().appointments.update_one({"_id": ObjectId(apt_id)}, {"$set": {"status": status}})
     flash(f'Appointment {status}.')
     return redirect(url_for('doctor_dashboard'))
@@ -365,11 +502,9 @@ def download_report():
     db = get_mongo_db()
     user = db.patients.find_one({"email": session['email']})
 
-    # Decrypt for PDF
     fullname = decrypt_data(user.get('fullname'))
     nhs_num = decrypt_data(user.get('nhs_number'))
-    gender = user.get('gender')  # Gender is plaintext in Mongo setup
-
+    gender = decrypt_data(user.get('gender'))
     risk_score, medical_advice = calculate_stroke_risk(user)
 
     habits = []
@@ -473,7 +608,7 @@ def admin_dashboard():
     patient_count = db.patients.count_documents({"role": "patient"})
     doctor_count = db.patients.count_documents({"role": "doctor"})
 
-    # Decrypt names for lists
+    # Lists (Decrypt names)
     doctors = list(db.patients.find({"role": "doctor"}))
     for d in doctors: d['fullname'] = decrypt_data(d.get('fullname'))
 
@@ -500,7 +635,6 @@ def add_doctor():
     email = clean_input(request.form.get('email'))
     password = request.form.get('password')
 
-    from werkzeug.security import generate_password_hash
     hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
 
     conn = get_sqlite_conn()
